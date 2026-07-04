@@ -126,14 +126,17 @@ def index():
     conn.close()
     vocab_totals = {r["cefr"]: r["total"] for r in rows}
 
+    cefr_levels = cefr_progress()
+    for level in cefr_levels:
+        level["total_words"] = vocab_totals.get(level["cefr"], 0)
+
     return render_template(
         "index.html",
         vocab_total=v_total,
         vocab_pct=round(100 * v_correct / v_total) if v_total else 0,
         conj_total=c_total,
         conj_pct=round(100 * c_correct / c_total) if c_total else 0,
-        cefr_levels=cefr_progress(),
-        vocab_totals=vocab_totals,
+        cefr_levels=cefr_levels,
         tense_stats=conjugate_tense_stats(),
         streak=daily_streak(),
     )

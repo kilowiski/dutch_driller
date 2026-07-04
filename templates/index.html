@@ -72,7 +72,7 @@
         <div class="cefr-bar">
             <div class="cefr-bar-label">
                 <span class="cefr-badge cefr-{{ level.cefr|lower }}">{{ level.cefr }}</span>
-                <span class="cefr-count">{{ level.known }} words known</span>
+                <span class="cefr-count">{{ level.known }} / {{ level.total_words }} words known</span>
             </div>
             <div class="progress-track">
                 <div class="progress-fill cefr-fill-{{ level.cefr|lower }}"
