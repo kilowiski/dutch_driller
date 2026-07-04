@@ -690,3 +690,23 @@ h1 {
 }
 .correct-btn:hover { color: #3fb950; border-color: #3fb950; }
 .correct-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Table info box ───────────────────────────────────────────────── */
+
+.table-info {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: #8b949e;
+    margin-bottom: 4px;
+    line-height: 1.5;
+}
+.table-info code {
+    background: #1c2128;
+    color: #c9d1d9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.82rem;
+}

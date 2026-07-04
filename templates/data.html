@@ -3,6 +3,21 @@
 {% block content %}
 
 <h1>Data Viewer</h1>
+<p class="subtitle">Raw database tables. Click any cell to edit inline — changes save on blur or Enter.</p>
+
+{% set table_info = {
+    "vocab_words":       "Reference data for vocabulary flashcards. Edit <code>word</code>, <code>translation</code>, <code>category</code>, or <code>example</code> to fix incorrect expected answers.",
+    "phrases":           "Reference data for phrase drills. Edit <code>word</code>, <code>translation</code>, or <code>scenario</code>.",
+    "verbs_ref":         "Reference data for verb conjugations. Edit <code>translation</code>, <code>stem</code>, or <code>irregular</code> (JSON) to add accepted alternatives with <code>/</code> separators.",
+    "sentences_ref":     "Reference data for sentence ordering drills. Edit <code>english</code> prompt or <code>correct_order</code> (JSON array).",
+    "vocab_srs":         "Spaced repetition state for vocab/phrases. <code>ef</code> = easiness (lower = harder), <code>interval</code> = days until next review, <code>reps</code> = consecutive correct streak, <code>next_review</code> = due date.",
+    "conjugate_srs":     "Spaced repetition state for conjugations. Same columns as vocab_srs.",
+    "vocab_attempts":    "Answer history for vocab/phrases. <code>correct</code> = 0 (wrong) or 1 (right). Last 100 rows.",
+    "conjugate_attempts":"Answer history for conjugations. Last 100 rows.",
+} %}
+{% if table in table_info %}
+<div class="table-info">{{ table_info[table] | safe }}</div>
+{% endif %}
 
 <div class="controls">
     <div class="control-group">
