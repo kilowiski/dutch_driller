@@ -624,42 +624,6 @@ def get_verbs(lang="nl"):
     return [{**dict(r), "irregular": json.loads(r["irregular"])} for r in rows]
 
 
-# ── Conjugation engine ───────────────────────────────────────────────
-
-PRONOUNS = {"ik":"I","jij":"you (sg inf)","u":"you (formal)","hij":"he","zij":"she","het":"it","wij":"we","jullie":"you (pl)","zij_pl":"they"}
-TENSES = ["present","past","perfect"]
-TENSE_LABEL = {"present":"present tense (tegenwoordige tijd)","past":"simple past (onvoltooid verleden tijd)","perfect":"present perfect (voltooid tegenwoordige tijd)"}
-
-def _reg_present(stem, pronoun):
-    if pronoun=="ik": return stem
-    if pronoun in ("jij","u","hij","zij","het"): return stem+"t"
-    return stem
-
-def _reg_past(stem, pronoun):
-    soft=set("tkfschp"); suffix=stem[-1] in soft if stem else False
-    sg = "te" if suffix else "de"; pl = "ten" if suffix else "den"
-    return stem+sg if pronoun in ("ik","jij","u","hij","zij","het") else stem+pl
-
-def _reg_perfect(stem):
-    soft=set("tkfschp"); suffix = "t" if (stem[-1] in soft if stem else False) else "d"
-    return "ge"+stem+suffix
-
-def conjugate_verb(verb_entry, tense, pronoun):
-    irr = verb_entry.get("irregular",{})
-    if isinstance(irr, str): import json; irr = json.loads(irr)
-    if tense in irr and pronoun in irr[tense]: return irr[tense][pronoun]
-    stem = verb_entry.get("stem","")
-    if tense=="present": return _reg_present(stem, pronoun)
-    if tense=="past": return _reg_past(stem, pronoun)
-    if tense=="perfect": return _reg_perfect(stem)
-    return "?"
-
-def check_conjugation(verb_entry, tense, pronoun, user_answer):
-    correct = conjugate_verb(verb_entry, tense, pronoun)
-    alts = [a.strip().lower() for a in correct.split("/")]
-    return user_answer.strip().lower() in alts, correct
-
-
 # ── LLM explanation cache ──────────────────────────────────────────────
 
 def _ensure_llm_cache_table():
@@ -826,10 +790,11 @@ def get_due_phrases(direction, lang, scenario=None, limit=10):
     return [dict(r) for r in rows]
 
 
-def get_due_conjugations(tense, lang, limit=10):
+def get_due_conjugations(tense, lang, pronouns, limit=10):
     """
     Return verb+pronoun combos prioritized by SRS due-ness.
     Due items come first; remaining slots filled with random unseen combos.
+    pronouns should be a dict like {"ik":"I", ...} from the language engine.
     """
     import random
 
@@ -843,7 +808,7 @@ def get_due_conjugations(tense, lang, limit=10):
     conn.close()
 
     verbs = get_verbs(lang)
-    pronouns = list(PRONOUNS.keys())
+    pronoun_keys = list(pronouns.keys())
 
     result = []
     seen = set()
@@ -857,7 +822,7 @@ def get_due_conjugations(tense, lang, limit=10):
                 seen.add(key)
 
     if len(result) < limit:
-        combos = [(v, p) for v in verbs for p in pronouns]
+        combos = [(v, p) for v in verbs for p in pronoun_keys]
         random.shuffle(combos)
         for verb, pronoun in combos:
             key = (verb["infinitive"], pronoun)

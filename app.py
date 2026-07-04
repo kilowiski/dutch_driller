@@ -194,9 +194,12 @@ def vocab_check():
 @app.route("/vocab/explain", methods=["POST"])
 def vocab_explain():
     data = request.get_json()
+    lang = data.get("lang", DEFAULT_LANG)
+    lang_name = get_lang(lang)["name"]
     return jsonify(explain(
-        dutch=data.get("word", ""), english=data.get("translation", ""),
+        word=data.get("word", ""), translation=data.get("translation", ""),
         expected=data.get("expected", ""), user_answer=data.get("answer", ""),
+        lang_name=lang_name,
     ))
 
 
@@ -268,9 +271,12 @@ def phrases_check():
 @app.route("/phrases/explain", methods=["POST"])
 def phrases_explain():
     data = request.get_json()
+    lang = data.get("lang", DEFAULT_LANG)
+    lang_name = get_lang(lang)["name"]
     return jsonify(explain(
-        dutch=data.get("word", ""), english=data.get("translation", ""),
+        word=data.get("word", ""), translation=data.get("translation", ""),
         expected=data.get("expected", ""), user_answer=data.get("answer", ""),
+        lang_name=lang_name,
     ))
 
 
@@ -330,7 +336,7 @@ def conjugate_drill():
     count = int(request.args.get("count", 10))
 
     engine = get_engine(lang)
-    items = get_due_conjugations(tense, lang, count)
+    items = get_due_conjugations(tense, lang, engine.pronouns, count)
 
     drill_items = []
     for item in items:
@@ -511,7 +517,7 @@ def generate_content():
     else:
         get_existing = lambda: [s["english"] for s in get_sentences(lang=lang)]
 
-    items, error = llm_generate(content_type, level, count, category, get_existing)
+    items, error = llm_generate(content_type, level, count, category, get_existing, get_lang(lang)["name"])
     if error:
         return jsonify({"error": error}), 400
 
