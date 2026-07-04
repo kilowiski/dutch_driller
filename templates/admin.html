@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Admin{% endblock %}
+{% block title %}Generate Content{% endblock %}
 {% block content %}
 
-<h1>Admin — Dutch Driller</h1>
+<h1>Generate Content</h1>
+<p class="subtitle">Use the LLM to create new {{ lang.name }} vocabulary, verbs, phrases, and sentence exercises.</p>
 
 <h2>Database Stats</h2>
 <div class="tense-grid" style="margin-bottom:24px">
@@ -93,10 +94,10 @@ function generate(type) {
     resultEl.textContent = 'Generating...';
     resultEl.className = 'feedback';
 
-    fetch('/generate?pw={{ pw }}', {
+    fetch('/generate/content', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body),
+        body: JSON.stringify(Object.assign(body, {lang: '{{ lang_code }}'})),
     })
     .then(r => r.json())
     .then(data => {

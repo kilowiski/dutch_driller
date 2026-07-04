@@ -484,27 +484,17 @@ def data_update():
         return jsonify({"ok": False, "error": str(e)}), 400
 
 
-# ── Admin + Content Generator ──────────────────────────────────────────
+# ── Content Generator ──────────────────────────────────────────────────
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
-
-def _check_admin():
-    return request.args.get("pw", "") == ADMIN_PASSWORD
-
-
-@app.route("/admin")
-def admin_page():
-    if not _check_admin():
-        return "Unauthorized. Add ?pw=your_password", 401
+@app.route("/generate")
+def generate_page():
+    """Content generator — LLM-powered vocab, verb, phrase, and sentence creation."""
     counts = get_table_counts()
-    return render_template("admin.html", counts=counts, pw=request.args.get("pw", ""))
+    return render_template("admin.html", counts=counts)
 
 
-@app.route("/generate", methods=["POST"])
+@app.route("/generate/content", methods=["POST"])
 def generate_content():
-    if not _check_admin():
-        return jsonify({"error": "unauthorized"}), 401
-
     data = request.get_json()
     content_type = data.get("type", "vocab")
     level = data.get("level", "A1")
