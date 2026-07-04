@@ -45,26 +45,29 @@ init_db()
 
 # One-time seed: populate from .py files if tables are empty
 def _seed_if_empty():
-    from models import get_db
-    conn = get_db()
-    if conn.execute("SELECT COUNT(*) FROM vocab_words").fetchone()[0] == 0:
-        from data.vocabulary import VOCABULARY
-        conn.executemany("INSERT INTO vocab_words (dutch,english,category,cefr,example) VALUES (?,?,?,?,?)",
-                         [(e["dutch"],e["english"],e["category"],e.get("cefr",""),e.get("example","")) for e in VOCABULARY])
-    if conn.execute("SELECT COUNT(*) FROM phrases").fetchone()[0] == 0:
-        from data.phrases import PHRASES
-        conn.executemany("INSERT INTO phrases (dutch,english,scenario,cefr) VALUES (?,?,?,?)",
-                         [(p["dutch"],p["english"],p["scenario"],p.get("cefr","")) for p in PHRASES])
-    if conn.execute("SELECT COUNT(*) FROM sentences_ref").fetchone()[0] == 0:
-        from data.sentences import SENTENCES; import json
-        conn.executemany("INSERT INTO sentences_ref (correct_order,english,cefr) VALUES (?,?,?)",
-                         [(json.dumps(s["correct"]),s["english"],s.get("cefr","")) for s in SENTENCES])
-    if conn.execute("SELECT COUNT(*) FROM verbs_ref").fetchone()[0] == 0:
-        from data.verbs import VERBS; import json
-        conn.executemany("INSERT INTO verbs_ref (infinitive,english,type,stem,cefr,example,irregular) VALUES (?,?,?,?,?,?,?)",
-                         [(v["infinitive"],v["english"],v["type"],v.get("stem",""),v.get("cefr",""),v.get("example",""),
-                           json.dumps(v.get("irregular",{}))) for v in VERBS])
-    conn.commit(); conn.close()
+    try:
+        from models import get_db
+        conn = get_db()
+        if conn.execute("SELECT COUNT(*) FROM vocab_words").fetchone()[0] == 0:
+            from data.vocabulary import VOCABULARY
+            conn.executemany("INSERT INTO vocab_words (dutch,english,category,cefr,example) VALUES (?,?,?,?,?)",
+                             [(e["dutch"],e["english"],e["category"],e.get("cefr",""),e.get("example","")) for e in VOCABULARY])
+        if conn.execute("SELECT COUNT(*) FROM phrases").fetchone()[0] == 0:
+            from data.phrases import PHRASES
+            conn.executemany("INSERT INTO phrases (dutch,english,scenario,cefr) VALUES (?,?,?,?)",
+                             [(p["dutch"],p["english"],p["scenario"],p.get("cefr","")) for p in PHRASES])
+        if conn.execute("SELECT COUNT(*) FROM sentences_ref").fetchone()[0] == 0:
+            from data.sentences import SENTENCES; import json
+            conn.executemany("INSERT INTO sentences_ref (correct_order,english,cefr) VALUES (?,?,?)",
+                             [(json.dumps(s["correct"]),s["english"],s.get("cefr","")) for s in SENTENCES])
+        if conn.execute("SELECT COUNT(*) FROM verbs_ref").fetchone()[0] == 0:
+            from data.verbs import VERBS; import json
+            conn.executemany("INSERT INTO verbs_ref (infinitive,english,type,stem,cefr,example,irregular) VALUES (?,?,?,?,?,?,?)",
+                             [(v["infinitive"],v["english"],v["type"],v.get("stem",""),v.get("cefr",""),v.get("example",""),
+                               json.dumps(v.get("irregular",{}))) for v in VERBS])
+        conn.commit(); conn.close()
+    except Exception:
+        pass  # .py seed files not available — DB may already have data
 _seed_if_empty()
 
 # ── LLM config ─────────────────────────────────────────────────────────
