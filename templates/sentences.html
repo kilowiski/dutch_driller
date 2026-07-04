@@ -49,14 +49,6 @@
 
 <script>
 (function() {
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('.speak-btn');
-        if (!btn) return;
-        const u = new SpeechSynthesisUtterance(btn.dataset.word);
-        u.lang = '{{ lang.tts_lang }}'; u.rate = 0.85;
-        speechSynthesis.cancel(); speechSynthesis.speak(u);
-    });
-
     const cards = document.querySelectorAll('.sentence-card');
     let total = cards.length, done = 0, correct = 0;
 

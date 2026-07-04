@@ -38,7 +38,6 @@
         </div>
         <div class="prompt-word">
             {{ item.prompt }}
-            <button class="speak-btn" data-word="{{ item.word }}" title="Listen">🔊</button>
         </div>
         <div class="card-meta">
             {% if item.cefr %}
@@ -61,14 +60,6 @@
 
 <script>
 (function() {
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('.speak-btn');
-        if (!btn) return;
-        const u = new SpeechSynthesisUtterance(btn.dataset.word);
-        u.lang = '{{ lang.tts_lang }}'; u.rate = 0.85;
-        speechSynthesis.cancel(); speechSynthesis.speak(u);
-    });
-
     const cards = document.querySelectorAll('.drill-card');
     let total = cards.length, done = 0, correct = 0;
 
