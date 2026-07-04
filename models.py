@@ -49,6 +49,26 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_vocab_word ON vocab_attempts(dutch, direction);
         CREATE INDEX IF NOT EXISTS idx_vocab_correct ON vocab_attempts(dutch, correct);
         CREATE INDEX IF NOT EXISTS idx_verb_attempt ON conjugate_attempts(infinitive, tense, pronoun);
+
+        CREATE TABLE IF NOT EXISTS vocab_words (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, dutch TEXT NOT NULL UNIQUE,
+            english TEXT NOT NULL, category TEXT NOT NULL,
+            cefr TEXT NOT NULL DEFAULT '', example TEXT NOT NULL DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS phrases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, dutch TEXT NOT NULL UNIQUE,
+            english TEXT NOT NULL, scenario TEXT NOT NULL, cefr TEXT NOT NULL DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS sentences_ref (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            correct_order TEXT NOT NULL, english TEXT NOT NULL, cefr TEXT NOT NULL DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS verbs_ref (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, infinitive TEXT NOT NULL UNIQUE,
+            english TEXT NOT NULL, type TEXT NOT NULL,
+            stem TEXT NOT NULL DEFAULT '', cefr TEXT NOT NULL DEFAULT '',
+            example TEXT NOT NULL DEFAULT '', irregular TEXT NOT NULL DEFAULT '{}'
+        );
     """)
 
     # Migration: add cefr column to existing databases
