@@ -202,11 +202,21 @@ def vocab_explain():
 
 @app.route("/vocab/correct", methods=["POST"])
 def vocab_correct():
-    """Override a wrong vocab answer: re-apply SRS as if correct."""
+    """Override a wrong vocab answer: flip attempt + re-apply SRS as correct."""
     data = request.get_json()
     word = data.get("word", "")
     direction = data.get("direction", "forward")
     lang = data.get("lang", DEFAULT_LANG)
+    # Flip the most recent attempt for this item
+    conn = get_db()
+    conn.execute("""
+        UPDATE vocab_attempts SET correct = 1
+        WHERE word = ? AND direction = ? AND lang = ?
+        AND id = (SELECT id FROM vocab_attempts
+                  WHERE word = ? AND direction = ? AND lang = ?
+                  ORDER BY created_at DESC LIMIT 1)
+    """, (word, direction, lang, word, direction, lang))
+    conn.commit(); conn.close()
     update_vocab_srs(word, direction, lang, True)
     return jsonify({"ok": True})
 
@@ -266,11 +276,20 @@ def phrases_explain():
 
 @app.route("/phrases/correct", methods=["POST"])
 def phrases_correct():
-    """Override a wrong phrase answer: re-apply SRS as if correct."""
+    """Override a wrong phrase answer: flip attempt + re-apply SRS as correct."""
     data = request.get_json()
     word = data.get("word", "")
     direction = data.get("direction", "forward")
     lang = data.get("lang", DEFAULT_LANG)
+    conn = get_db()
+    conn.execute("""
+        UPDATE vocab_attempts SET correct = 1
+        WHERE word = ? AND direction = ? AND lang = ?
+        AND id = (SELECT id FROM vocab_attempts
+                  WHERE word = ? AND direction = ? AND lang = ?
+                  ORDER BY created_at DESC LIMIT 1)
+    """, (word, direction, lang, word, direction, lang))
+    conn.commit(); conn.close()
     update_vocab_srs(word, direction, lang, True)
     return jsonify({"ok": True})
 
@@ -355,12 +374,21 @@ def conjugate_check():
 
 @app.route("/conjugate/correct", methods=["POST"])
 def conjugate_correct():
-    """Override a wrong answer: re-apply SRS as if correct."""
+    """Override a wrong conjugation: flip attempt + re-apply SRS as correct."""
     data = request.get_json()
     infinitive = data.get("infinitive", "")
     tense = data.get("tense", "present")
     pronoun = data.get("pronoun", "")
     lang = data.get("lang", DEFAULT_LANG)
+    conn = get_db()
+    conn.execute("""
+        UPDATE conjugate_attempts SET correct = 1
+        WHERE infinitive = ? AND tense = ? AND pronoun = ? AND lang = ?
+        AND id = (SELECT id FROM conjugate_attempts
+                  WHERE infinitive = ? AND tense = ? AND pronoun = ? AND lang = ?
+                  ORDER BY created_at DESC LIMIT 1)
+    """, (infinitive, tense, pronoun, lang, infinitive, tense, pronoun, lang))
+    conn.commit(); conn.close()
     update_conjugate_srs(infinitive, tense, pronoun, lang, True)
     return jsonify({"ok": True})
 
