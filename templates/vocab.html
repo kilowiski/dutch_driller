@@ -88,14 +88,56 @@
                         card.classList.add('wrong');
                         feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>';
                         feedback.className = 'feedback feedback-bad';
+
+                        // Show "Explain" button if LLM is available
+                        if (data.llm_available) {
+                            const btn = document.createElement('button');
+                            btn.textContent = '🤖 Explain';
+                            btn.className = 'explain-btn';
+                            btn.onclick = function() {
+                                btn.disabled = true;
+                                btn.textContent = '...';
+                                fetch('/vocab/explain', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        answer: answer,
+                                        dutch: card.dataset.dutch,
+                                        english: card.dataset.english,
+                                        expected: data.expected,
+                                    })
+                                })
+                                .then(r => r.json())
+                                .then(llm => {
+                                    const el = document.createElement('div');
+                                    el.className = 'llm-explanation';
+                                    el.textContent = llm.explanation;
+                                    if (llm.acceptable) {
+                                        el.classList.add('llm-acceptable');
+                                        card.classList.remove('wrong');
+                                        card.classList.add('correct');
+                                    }
+                                    feedback.appendChild(el);
+                                    btn.remove();
+                                })
+                                .catch(() => { btn.textContent = 'Failed'; });
+                            };
+                            feedback.appendChild(btn);
+                        }
                     }
                     card.classList.add('done');
                     input.disabled = true;
 
-                    // Auto-focus next unanswered
+                    // Scroll feedback into view on mobile
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+                    // Auto-focus next after a beat so user can read feedback
                     const next = card.nextElementSibling;
                     if (next && next.classList.contains('drill-card') && !next.classList.contains('done')) {
-                        next.querySelector('.answer-input').focus();
+                        setTimeout(() => {
+                            next.querySelector('.answer-input').focus();
+                            next.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 400);
                     }
 
                     if (done === total) {

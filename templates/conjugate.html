@@ -83,9 +83,14 @@
                     card.classList.add('done');
                     input.disabled = true;
 
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
                     const next = card.nextElementSibling;
                     if (next && next.classList.contains('drill-card') && !next.classList.contains('done')) {
-                        next.querySelector('.answer-input').focus();
+                        setTimeout(() => {
+                            next.querySelector('.answer-input').focus();
+                            next.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 400);
                     }
 
                     if (done === total) {

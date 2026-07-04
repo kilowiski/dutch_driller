@@ -215,9 +215,11 @@ h1 {
 .done .answer-input { border-color: transparent; }
 
 .feedback {
-    margin-top: 8px;
-    font-size: 0.9rem;
-    min-height: 20px;
+    margin-top: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    min-height: 24px;
+    padding: 4px 0;
 }
 
 .feedback-ok  { color: #3fb950; }
@@ -229,6 +231,35 @@ h1 {
     background: #21262d;
     padding: 1px 6px;
     border-radius: 4px;
+}
+
+/* ── Explain button / LLM ─────────────────────────────────────────── */
+.explain-btn {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #8b949e;
+    cursor: pointer;
+}
+.explain-btn:hover { background: #30363d; color: #c9d1d9; }
+.explain-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.llm-explanation {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: #161b22;
+    border-left: 3px solid #58a6ff;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.85rem;
+    color: #8b949e;
+    line-height: 1.5;
+}
+.llm-explanation.llm-acceptable {
+    border-left-color: #3fb950;
 }
 
 /* ── Score Bar ────────────────────────────────────────────────────── */
