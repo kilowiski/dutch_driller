@@ -524,3 +524,86 @@ h1 {
 }
 .unlock-hint a { color: #58a6ff; text-decoration: none; }
 .unlock-hint a:hover { text-decoration: underline; }
+
+/* ── SRS Stats ─────────────────────────────────────────────────────── */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.stats-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.stats-card h2 {
+    font-size: 1rem;
+    margin-bottom: 12px;
+    color: #f0f6fc;
+    border-bottom: 1px solid #21262d;
+    padding-bottom: 8px;
+}
+
+.stats-wide {
+    grid-column: 1 / -1;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 0.92rem;
+}
+
+.stat-label { color: #8b949e; }
+.stat-value { font-weight: 600; color: #c9d1d9; font-variant-numeric: tabular-nums; }
+.stat-value.highlight { color: #f0883e; }
+.stat-value.bad { color: #f85149; }
+.stat-value.dim { color: #484f58; }
+
+.mastery-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #21262d;
+    margin-bottom: 12px;
+}
+
+.mastery-segment { height: 100%; transition: width 0.3s; }
+.mastery-new      { background: #30363d; }
+.mastery-learning { background: #d29922; }
+.mastery-mature   { background: #3fb950; }
+.mastery-mature-text { color: #3fb950; }
+
+.mini-table { font-size: 0.88rem; margin-top: 8px; }
+
+.mini-table-header,
+.mini-table-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 6px 0;
+    align-items: center;
+}
+
+.mini-table-header { color: #8b949e; font-weight: 600; border-bottom: 1px solid #21262d; padding-bottom: 8px; margin-bottom: 4px; }
+.mini-table-row { border-bottom: 1px solid #21262d11; }
+.mini-table-row:last-child { border-bottom: none; }
+.mini-table-row span { text-align: center; font-variant-numeric: tabular-nums; }
+.mini-table-row span:first-child { text-align: left; }
+
+@media (max-width: 600px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .mini-table-header,
+    .mini-table-row {
+        grid-template-columns: 1.5fr 1fr 1fr 0.8fr 0.8fr;
+        font-size: 0.8rem;
+    }
+}

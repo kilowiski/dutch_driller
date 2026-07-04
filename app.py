@@ -19,6 +19,7 @@ from models import (
     get_table_counts,
     get_due_vocab, get_due_phrases, get_due_conjugations,
     update_vocab_srs, update_conjugate_srs,
+    srs_vocab_stats, srs_conjugate_stats,
 )
 
 from languages import get_lang, DEFAULT_LANG, available_languages
@@ -328,6 +329,18 @@ def conjugate_check():
     record_conjugate(infinitive, tense, pronoun, user_answer, is_correct, lang)
     update_conjugate_srs(infinitive, tense, pronoun, lang, is_correct)
     return jsonify({"correct": is_correct, "expected": correct_form})
+
+
+# ── SRS Stats ──────────────────────────────────────────────────────────
+
+@app.route("/stats")
+def stats_page():
+    lang = request.args.get("lang", DEFAULT_LANG)
+    return render_template(
+        "stats.html",
+        vocab=srs_vocab_stats(lang),
+        conjugate=srs_conjugate_stats(lang),
+    )
 
 
 # ── Admin + Content Generator ──────────────────────────────────────────

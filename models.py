@@ -870,6 +870,167 @@ def get_due_conjugations(tense, lang, limit=10):
     return result[:limit]
 
 
+# ── SRS Stats ───────────────────────────────────────────────────────────
+
+def srs_vocab_stats(lang="nl"):
+    """Return SRS overview stats for vocabulary/phrases."""
+    conn = get_db()
+
+    # Queue overview
+    queue = conn.execute("""
+        SELECT
+            COUNT(*) AS total_in_srs,
+            SUM(CASE WHEN next_review <= date('now') THEN 1 ELSE 0 END) AS due_now,
+            SUM(CASE WHEN next_review <= date('now', '+7 days') THEN 1 ELSE 0 END) AS due_week
+        FROM vocab_srs
+        WHERE lang = ?
+    """, (lang,)).fetchone()
+
+    # Mastery tiers
+    mastery = conn.execute("""
+        SELECT
+            SUM(CASE WHEN reps = 0 THEN 1 ELSE 0 END) AS new_items,
+            SUM(CASE WHEN reps BETWEEN 1 AND 2 THEN 1 ELSE 0 END) AS learning,
+            SUM(CASE WHEN reps >= 3 THEN 1 ELSE 0 END) AS mature
+        FROM vocab_srs
+        WHERE lang = ?
+    """, (lang,)).fetchone()
+
+    # Interval distribution
+    intervals = conn.execute("""
+        SELECT
+            SUM(CASE WHEN interval = 1 THEN 1 ELSE 0 END) AS i_1d,
+            SUM(CASE WHEN interval BETWEEN 2 AND 6 THEN 1 ELSE 0 END) AS i_2_6d,
+            SUM(CASE WHEN interval BETWEEN 7 AND 14 THEN 1 ELSE 0 END) AS i_7_14d,
+            SUM(CASE WHEN interval BETWEEN 15 AND 30 THEN 1 ELSE 0 END) AS i_15_30d,
+            SUM(CASE WHEN interval > 30 THEN 1 ELSE 0 END) AS i_30plus
+        FROM vocab_srs
+        WHERE lang = ?
+    """, (lang,)).fetchone()
+
+    # Average EF
+    avg_ef = conn.execute("""
+        SELECT ROUND(AVG(ef), 2) AS avg_ef,
+               ROUND(AVG(CASE WHEN reps >= 2 THEN ef END), 2) AS avg_ef_mature
+        FROM vocab_srs WHERE lang = ?
+    """, (lang,)).fetchone()
+
+    # Per-category breakdown (join vocab_words for category)
+    by_category = conn.execute("""
+        SELECT vw.category,
+               COUNT(*) AS total,
+               SUM(CASE WHEN vs.next_review <= date('now') THEN 1 ELSE 0 END) AS due_now,
+               ROUND(AVG(vs.ef), 2) AS avg_ef,
+               ROUND(AVG(vs.interval), 1) AS avg_interval
+        FROM vocab_srs vs
+        JOIN vocab_words vw ON vs.word = vw.word AND vs.lang = vw.lang
+        WHERE vs.lang = ?
+        GROUP BY vw.category
+        ORDER BY due_now DESC, avg_ef ASC
+    """, (lang,)).fetchall()
+
+    # Reviews in last 7 days
+    recent = conn.execute("""
+        SELECT COUNT(*) AS reviews_7d
+        FROM vocab_attempts
+        WHERE lang = ? AND created_at >= datetime('now', '-7 days')
+    """, (lang,)).fetchone()
+
+    # Items never reviewed yet
+    unseen = conn.execute("""
+        SELECT COUNT(*) AS unseen
+        FROM vocab_words vw
+        WHERE vw.lang = ?
+          AND NOT EXISTS (SELECT 1 FROM vocab_srs vs WHERE vs.word = vw.word AND vs.lang = vw.lang AND vs.direction = 'forward')
+    """, (lang,)).fetchone()
+
+    conn.close()
+
+    return {
+        "queue": dict(queue) if queue else {},
+        "mastery": dict(mastery) if mastery else {},
+        "intervals": dict(intervals) if intervals else {},
+        "avg_ef": dict(avg_ef) if avg_ef else {},
+        "by_category": [dict(r) for r in by_category],
+        "recent": dict(recent) if recent else {},
+        "unseen": dict(unseen) if unseen else {},
+    }
+
+
+def srs_conjugate_stats(lang="nl"):
+    """Return SRS overview stats for conjugations."""
+    conn = get_db()
+
+    # Queue overview
+    queue = conn.execute("""
+        SELECT
+            COUNT(*) AS total_in_srs,
+            SUM(CASE WHEN next_review <= date('now') THEN 1 ELSE 0 END) AS due_now,
+            SUM(CASE WHEN next_review <= date('now', '+7 days') THEN 1 ELSE 0 END) AS due_week
+        FROM conjugate_srs
+        WHERE lang = ?
+    """, (lang,)).fetchone()
+
+    # Mastery tiers
+    mastery = conn.execute("""
+        SELECT
+            SUM(CASE WHEN reps = 0 THEN 1 ELSE 0 END) AS new_items,
+            SUM(CASE WHEN reps BETWEEN 1 AND 2 THEN 1 ELSE 0 END) AS learning,
+            SUM(CASE WHEN reps >= 3 THEN 1 ELSE 0 END) AS mature
+        FROM conjugate_srs
+        WHERE lang = ?
+    """, (lang,)).fetchone()
+
+    # Average EF
+    avg_ef = conn.execute("""
+        SELECT ROUND(AVG(ef), 2) AS avg_ef,
+               ROUND(AVG(CASE WHEN reps >= 2 THEN ef END), 2) AS avg_ef_mature
+        FROM conjugate_srs WHERE lang = ?
+    """, (lang,)).fetchone()
+
+    # Per-tense breakdown
+    by_tense = conn.execute("""
+        SELECT tense,
+               COUNT(*) AS total,
+               SUM(CASE WHEN next_review <= date('now') THEN 1 ELSE 0 END) AS due_now,
+               ROUND(AVG(ef), 2) AS avg_ef,
+               ROUND(AVG(interval), 1) AS avg_interval
+        FROM conjugate_srs
+        WHERE lang = ?
+        GROUP BY tense
+        ORDER BY due_now DESC
+    """, (lang,)).fetchall()
+
+    # Reviews in last 7 days
+    recent = conn.execute("""
+        SELECT COUNT(*) AS reviews_7d
+        FROM conjugate_attempts
+        WHERE lang = ? AND created_at >= datetime('now', '-7 days')
+    """, (lang,)).fetchone()
+
+    # Verb+pronoun combos never reviewed
+    unseen = conn.execute("""
+        SELECT COUNT(*) AS unseen
+        FROM verbs_ref v
+        WHERE v.lang = ?
+          AND NOT EXISTS (
+              SELECT 1 FROM conjugate_srs cs
+              WHERE cs.infinitive = v.infinitive AND cs.lang = v.lang
+          )
+    """, (lang,)).fetchone()
+
+    conn.close()
+
+    return {
+        "queue": dict(queue) if queue else {},
+        "mastery": dict(mastery) if mastery else {},
+        "avg_ef": dict(avg_ef) if avg_ef else {},
+        "by_tense": [dict(r) for r in by_tense],
+        "recent": dict(recent) if recent else {},
+        "unseen": dict(unseen) if unseen else {},
+    }
+
+
 # ── Public aliases for app.py ───────────────────────────────────────────
 
 update_vocab_srs = _upsert_vocab_srs

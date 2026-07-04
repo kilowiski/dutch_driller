@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}SRS Stats{% endblock %}
+{% block content %}
+
+<h1>SRS Stats</h1>
+<p class="subtitle">How the spaced repetition algorithm is working for your {{ lang.name }}.</p>
+
+<div class="stats-grid">
+
+    {# ── Vocab Queue ──────────────────────────────────────────── #}
+    <div class="stats-card">
+        <h2>📝 Vocabulary Queue</h2>
+        {% set vq = vocab.queue %}
+        <div class="stat-row">
+            <span class="stat-label">Due today</span>
+            <span class="stat-value {% if vq.due_now and vq.due_now > 0 %}highlight{% endif %}">{{ vq.due_now or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Due this week</span>
+            <span class="stat-value">{{ vq.due_week or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Total in rotation</span>
+            <span class="stat-value">{{ vq.total_in_srs or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Never reviewed</span>
+            <span class="stat-value dim">{{ vocab.unseen.unseen or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Reviews (7 days)</span>
+            <span class="stat-value">{{ vocab.recent.reviews_7d or 0 }}</span>
+        </div>
+    </div>
+
+    {# ── Conjugate Queue ──────────────────────────────────────── #}
+    <div class="stats-card">
+        <h2>🔤 Conjugation Queue</h2>
+        {% set cq = conjugate.queue %}
+        <div class="stat-row">
+            <span class="stat-label">Due today</span>
+            <span class="stat-value {% if cq.due_now and cq.due_now > 0 %}highlight{% endif %}">{{ cq.due_now or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Due this week</span>
+            <span class="stat-value">{{ cq.due_week or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Total in rotation</span>
+            <span class="stat-value">{{ cq.total_in_srs or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Never reviewed</span>
+            <span class="stat-value dim">{{ conjugate.unseen.unseen or 0 }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Reviews (7 days)</span>
+            <span class="stat-value">{{ conjugate.recent.reviews_7d or 0 }}</span>
+        </div>
+    </div>
+
+    {# ── Vocab Mastery ────────────────────────────────────────── #}
+    <div class="stats-card">
+        <h2>📝 Vocabulary Mastery</h2>
+        {% set vm = vocab.mastery %}
+        {% set vt = (vm.new_items or 0) + (vm.learning or 0) + (vm.mature or 0) %}
+        <div class="mastery-bar">
+            {% if vt > 0 %}
+            <div class="mastery-segment mastery-new" style="width:{{ (vm.new_items or 0) / vt * 100 }}%"
+                 title="New: {{ vm.new_items or 0 }}"></div>
+            <div class="mastery-segment mastery-learning" style="width:{{ (vm.learning or 0) / vt * 100 }}%"
+                 title="Learning: {{ vm.learning or 0 }}"></div>
+            <div class="mastery-segment mastery-mature" style="width:{{ (vm.mature or 0) / vt * 100 }}%"
+                 title="Mature: {{ vm.mature or 0 }}"></div>
+            {% endif %}
+        </div>
+        <div class="stat-row"><span class="stat-label">New (reps=0)</span><span class="stat-value">{{ vm.new_items or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">Learning (1–2)</span><span class="stat-value">{{ vm.learning or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">Mature (3+)</span><span class="stat-value mastery-mature-text">{{ vm.mature or 0 }}</span></div>
+        <div class="stat-row">
+            <span class="stat-label">Avg easiness</span>
+            <span class="stat-value {% if vocab.avg_ef.avg_ef and vocab.avg_ef.avg_ef < 2.0 %}bad{% endif %}">
+                {{ vocab.avg_ef.avg_ef or '—' }}
+            </span>
+        </div>
+    </div>
+
+    {# ── Conjugate Mastery ────────────────────────────────────── #}
+    <div class="stats-card">
+        <h2>🔤 Conjugation Mastery</h2>
+        {% set cm = conjugate.mastery %}
+        {% set ct = (cm.new_items or 0) + (cm.learning or 0) + (cm.mature or 0) %}
+        <div class="mastery-bar">
+            {% if ct > 0 %}
+            <div class="mastery-segment mastery-new" style="width:{{ (cm.new_items or 0) / ct * 100 }}%"
+                 title="New: {{ cm.new_items or 0 }}"></div>
+            <div class="mastery-segment mastery-learning" style="width:{{ (cm.learning or 0) / ct * 100 }}%"
+                 title="Learning: {{ cm.learning or 0 }}"></div>
+            <div class="mastery-segment mastery-mature" style="width:{{ (cm.mature or 0) / ct * 100 }}%"
+                 title="Mature: {{ cm.mature or 0 }}"></div>
+            {% endif %}
+        </div>
+        <div class="stat-row"><span class="stat-label">New (reps=0)</span><span class="stat-value">{{ cm.new_items or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">Learning (1–2)</span><span class="stat-value">{{ cm.learning or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">Mature (3+)</span><span class="stat-value mastery-mature-text">{{ cm.mature or 0 }}</span></div>
+        <div class="stat-row">
+            <span class="stat-label">Avg easiness</span>
+            <span class="stat-value {% if conjugate.avg_ef.avg_ef and conjugate.avg_ef.avg_ef < 2.0 %}bad{% endif %}">
+                {{ conjugate.avg_ef.avg_ef or '—' }}
+            </span>
+        </div>
+    </div>
+
+    {# ── Vocab Intervals ───────────────────────────────────────── #}
+    <div class="stats-card">
+        <h2>📝 Interval Spread</h2>
+        {% set vi = vocab.intervals %}
+        <div class="stat-row"><span class="stat-label">1 day</span><span class="stat-value">{{ vi.i_1d or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">2–6 days</span><span class="stat-value">{{ vi.i_2_6d or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">7–14 days</span><span class="stat-value">{{ vi.i_7_14d or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">15–30 days</span><span class="stat-value">{{ vi.i_15_30d or 0 }}</span></div>
+        <div class="stat-row"><span class="stat-label">30+ days</span><span class="stat-value mastery-mature-text">{{ vi.i_30plus or 0 }}</span></div>
+    </div>
+
+    {# ── Per-Category Breakdown ────────────────────────────────── #}
+    {% if vocab.by_category %}
+    <div class="stats-card stats-wide">
+        <h2>📝 By Category</h2>
+        <div class="mini-table">
+            <div class="mini-table-header">
+                <span>Category</span><span>Total</span><span>Due</span><span>Avg EF</span><span>Avg Interval</span>
+            </div>
+            {% for cat in vocab.by_category %}
+            <div class="mini-table-row">
+                <span>{{ cat.category }}</span>
+                <span>{{ cat.total }}</span>
+                <span class="{% if cat.due_now and cat.due_now > 0 %}highlight{% endif %}">{{ cat.due_now or 0 }}</span>
+                <span class="{% if cat.avg_ef and cat.avg_ef < 2.2 %}bad{% endif %}">{{ cat.avg_ef }}</span>
+                <span>{{ cat.avg_interval }}d</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Per-Tense Breakdown ───────────────────────────────────── #}
+    {% if conjugate.by_tense %}
+    <div class="stats-card stats-wide">
+        <h2>🔤 By Tense</h2>
+        <div class="mini-table">
+            <div class="mini-table-header">
+                <span>Tense</span><span>Total</span><span>Due</span><span>Avg EF</span><span>Avg Interval</span>
+            </div>
+            {% for t in conjugate.by_tense %}
+            <div class="mini-table-row">
+                <span>{{ t.tense }}</span>
+                <span>{{ t.total }}</span>
+                <span class="{% if t.due_now and t.due_now > 0 %}highlight{% endif %}">{{ t.due_now or 0 }}</span>
+                <span class="{% if t.avg_ef and t.avg_ef < 2.2 %}bad{% endif %}">{{ t.avg_ef }}</span>
+                <span>{{ t.avg_interval }}d</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<div class="controls" style="margin-top:1.5rem">
+    <a href="/stats?lang={{ lang_code }}" class="btn refresh">🔄 Refresh</a>
+    <a href="/?lang={{ lang_code }}" class="btn">🏠 Home</a>
+</div>
+
+{% endblock %}
