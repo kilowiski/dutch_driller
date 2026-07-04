@@ -5,15 +5,15 @@ Keyboard-driven drills. Zero gamification.
 
 ## Stack
 
-- **Backend**: Python 3, Flask
+- **Backend**: Python 3 (>=3.10), Flask
 - **Database**: SQLite via `sqlite3` (stdlib), auto-created at `drills.db`
 - **Frontend**: Jinja2 templates, vanilla JS, dark CSS (GitHub-dark palette)
-- **Env**: `uv` venv at `.venv/`, deps in `requirements.txt` (only `flask` + `gunicorn`)
+- **Env**: `uv` for dependency management, deps in `pyproject.toml` (flask + gunicorn)
 
 ## Run it
 
 ```powershell
-.venv\Scripts\python.exe app.py        # dev, port 5080
+uv run python -m main         # dev, port 5080
 # or double-click run.bat
 ```
 
@@ -54,8 +54,38 @@ run.bat             # Double-click launcher
 
 ## Hosting plan
 
-Target: Render free tier. Push to GitHub, connect, start command: `gunicorn app:app`.
-Cold starts are acceptable for a personal drill app.
+Target: **PythonAnywhere free tier**. Persistent disk, no cold starts, Flask-native.
+
+### Deploy steps (using uv)
+
+1. Push repo to GitHub (public recommended for hassle-free cloning)
+2. On PythonAnywhere, open a **Bash console**
+3. Install uv and clone:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   source ~/.bashrc
+   git clone https://github.com/kilowiski/dutch_driller.git
+   cd dutch-driller
+   uv sync
+   ```
+4. **Web tab** → Add a new web app → Manual configuration → Python 3.10
+5. Edit the WSGI file (link provided in the Web tab), replace contents:
+   ```python
+   import sys
+   path = '/home/YOUR_USERNAME/dutch-driller'
+   if path not in sys.path:
+       sys.path.append(path)
+   from app import app as application
+   ```
+6. Under **Virtualenv**, enter: `/home/YOUR_USERNAME/dutch-driller/.venv`
+7. Set env var: `SECRET_KEY` = any random string
+8. Hit **Reload** — live at `YOUR_USERNAME.pythonanywhere.com`
+
+### Free tier catches
+
+- Must log in every 3 months or account gets deleted
+- Whitelist-only outbound API calls (matters if AI tutor is added later)
+- 512 MB disk, limited CPU — fine for SQLite + Flask
 
 ## Future ideas (not built yet)
 
