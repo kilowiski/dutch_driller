@@ -17,7 +17,7 @@ from datetime import date, timedelta
 
 def quality(is_correct):
     """Map binary correct/wrong to SM-2 quality score (0-5 scale)."""
-    return 4 if is_correct else 0
+    return 5 if is_correct else 0
 
 
 def update(ef, interval, reps, is_correct):
