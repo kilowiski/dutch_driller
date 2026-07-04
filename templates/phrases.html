@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Phrases Drill{% endblock %}
+{% block content %}
+
+<h1>Phrases Drill</h1>
+
+<div class="controls">
+    <div class="control-group">
+        <label>Direction:</label>
+        <a href="?direction=nl_en{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+           class="btn {% if direction == 'nl_en' %}active{% endif %}">🇳🇱 → 🇬🇧</a>
+        <a href="?direction=en_nl{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+           class="btn {% if direction == 'en_nl' %}active{% endif %}">🇬🇧 → 🇳🇱</a>
+    </div>
+
+    <div class="control-group">
+        <label>Scenario:</label>
+        <a href="?direction={{ direction }}" class="btn {% if not selected_scenario %}active{% endif %}">All</a>
+        {% for s in scenarios %}
+        <a href="?direction={{ direction }}&scenario={{ s }}"
+           class="btn {% if selected_scenario == s %}active{% endif %}">{{ s }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="control-group">
+        <a href="?direction={{ direction }}{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+           class="btn refresh">🔄 New Drill</a>
+    </div>
+</div>
+
+<div id="drill-container">
+    {% for item in items %}
+    <div class="drill-card" data-dutch="{{ item.dutch }}" data-english="{{ item.english }}"
+         data-direction="{{ direction }}" data-cefr="{{ item.cefr }}">
+        <div class="prompt-label">
+            {% if direction == 'nl_en' %}Dutch{% else %}English{% endif %}
+            <span class="scenario-tag">{{ item.scenario }}</span>
+        </div>
+        <div class="prompt-word">
+            {{ item.prompt }}
+            <button class="speak-btn" data-word="{{ item.dutch }}" title="Listen">🔊</button>
+        </div>
+        <div class="card-meta">
+            {% if item.cefr %}
+            <span class="cefr-badge cefr-{{ item.cefr|lower }}">{{ item.cefr }}</span>
+            {% endif %}
+        </div>
+        <input type="text" class="answer-input" placeholder="Type your answer..."
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="feedback"></div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="score-bar" class="hidden">
+    <span id="score-text"></span>
+    <a href="/phrases?direction={{ direction }}{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+       class="btn">🔄 Again</a>
+</div>
+
+<script>
+(function() {
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.speak-btn');
+        if (!btn) return;
+        const u = new SpeechSynthesisUtterance(btn.dataset.word);
+        u.lang = 'nl-NL'; u.rate = 0.85;
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+    });
+
+    const cards = document.querySelectorAll('.drill-card');
+    let total = cards.length, done = 0, correct = 0;
+
+    cards.forEach(card => {
+        const input = card.querySelector('.answer-input');
+        const feedback = card.querySelector('.feedback');
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && input.value.trim() && !card.classList.contains('done')) {
+                const answer = input.value.trim();
+                fetch('/phrases/check', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        answer, dutch: card.dataset.dutch, english: card.dataset.english,
+                        direction: card.dataset.direction, cefr: card.dataset.cefr || '',
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    done++;
+                    if (data.correct) { correct++; card.classList.add('correct'); feedback.textContent = '✓ Correct!'; feedback.className = 'feedback feedback-ok'; }
+                    else { card.classList.add('wrong'); feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>'; feedback.className = 'feedback feedback-bad';
+                        if (data.llm_available) { const btn = document.createElement('button'); btn.textContent = '🤖 Explain'; btn.className = 'explain-btn'; btn.onclick = function() { btn.disabled=true; btn.textContent='...'; fetch('/phrases/explain', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({answer, dutch:card.dataset.dutch, english:card.dataset.english, expected:data.expected}) }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';}); }; feedback.appendChild(btn); }
+                    }
+                    card.classList.add('done'); input.disabled = true;
+                    feedback.scrollIntoView(false);
+                    const next = card.nextElementSibling;
+                    if (next && next.classList.contains('drill-card') && !next.classList.contains('done'))
+                        setTimeout(() => { next.querySelector('.answer-input').focus(); next.scrollIntoView(false); }, 700);
+                    if (done === total) { document.getElementById('score-bar').classList.remove('hidden'); document.getElementById('score-text').textContent = correct + ' / ' + total + ' correct (' + Math.round(100 * correct / total) + '%)'; }
+                });
+            }
+        });
+    });
+    if (cards.length) cards[0].querySelector('.answer-input').focus();
+})();
+</script>
+
+{% endblock %}

@@ -72,32 +72,32 @@ def _regular_perfect(stem, is_soft=False):
 
 VERBS = [
     # ── Regular ───────────────────────────────────────────────────────
-    {"infinitive": "werken",    "english": "to work",   "type": "regular", "stem": "werk"},
-    {"infinitive": "wonen",     "english": "to live",   "type": "regular", "stem": "woon"},
-    {"infinitive": "leren",     "english": "to learn",  "type": "regular", "stem": "leer"},
-    {"infinitive": "spelen",    "english": "to play",   "type": "regular", "stem": "speel"},
-    {"infinitive": "koken",     "english": "to cook",   "type": "regular", "stem": "kook"},
-    {"infinitive": "praten",    "english": "to talk",   "type": "regular", "stem": "praat"},
-    {"infinitive": "luisteren", "english": "to listen", "type": "regular", "stem": "luister"},
-    {"infinitive": "fietsen",   "english": "to cycle",  "type": "regular", "stem": "fiets"},
-    {"infinitive": "reizen",    "english": "to travel", "type": "regular", "stem": "reis"},
-    {"infinitive": "dansen",    "english": "to dance",  "type": "regular", "stem": "dans"},
-    {"infinitive": "maken",     "english": "to make",   "type": "regular", "stem": "maak"},
-    {"infinitive": "huren",     "english": "to rent",   "type": "regular", "stem": "huur"},
-    {"infinitive": "bellen",    "english": "to call",   "type": "regular", "stem": "bel"},
-    {"infinitive": "proberen",  "english": "to try",    "type": "regular", "stem": "probeer"},
-    {"infinitive": "gebruiken", "english": "to use",    "type": "regular", "stem": "gebruik"},
+    {"infinitive": "werken",    "english": "to work",   "type": "regular", "stem": "werk",   "cefr": "A1", "emoji": "💼", "example": "Ik werk vijf dagen per week."},
+    {"infinitive": "wonen",     "english": "to live",   "type": "regular", "stem": "woon",   "cefr": "A1", "emoji": "🏠", "example": "Wij wonen in een klein dorp."},
+    {"infinitive": "leren",     "english": "to learn",  "type": "regular", "stem": "leer",   "cefr": "A1", "emoji": "📚", "example": "Zij leert Nederlands op school."},
+    {"infinitive": "spelen",    "english": "to play",   "type": "regular", "stem": "speel",  "cefr": "A1", "emoji": "⚽", "example": "De kinderen spelen in de tuin."},
+    {"infinitive": "koken",     "english": "to cook",   "type": "regular", "stem": "kook",   "cefr": "A1", "emoji": "🍳", "example": "Mijn moeder kookt graag."},
+    {"infinitive": "praten",    "english": "to talk",   "type": "regular", "stem": "praat",  "cefr": "A1", "emoji": "💬", "example": "Zij praten over het weer."},
+    {"infinitive": "luisteren", "english": "to listen", "type": "regular", "stem": "luister","cefr": "A2", "emoji": "🎧", "example": "Ik luister naar muziek."},
+    {"infinitive": "fietsen",   "english": "to cycle",  "type": "regular", "stem": "fiets",  "cefr": "A1", "emoji": "🚲", "example": "Wij fietsen elke dag naar school."},
+    {"infinitive": "reizen",    "english": "to travel", "type": "regular", "stem": "reis",   "cefr": "A2", "emoji": "✈️", "example": "Zij reizen graag naar het buitenland."},
+    {"infinitive": "dansen",    "english": "to dance",  "type": "regular", "stem": "dans",   "cefr": "A2", "emoji": "💃", "example": "Zij dansen de hele nacht."},
+    {"infinitive": "maken",     "english": "to make",   "type": "regular", "stem": "maak",   "cefr": "A1", "emoji": "🔨", "example": "Ik maak het ontbijt klaar."},
+    {"infinitive": "huren",     "english": "to rent",   "type": "regular", "stem": "huur",   "cefr": "A2", "emoji": "🏠", "example": "Wij huren een appartement in de stad."},
+    {"infinitive": "bellen",    "english": "to call",   "type": "regular", "stem": "bel",    "cefr": "A2", "emoji": "📞", "example": "Ik bel je morgen terug."},
+    {"infinitive": "proberen",  "english": "to try",    "type": "regular", "stem": "probeer","cefr": "A2", "emoji": "🎯", "example": "Ik probeer Nederlands te spreken."},
+    {"infinitive": "gebruiken", "english": "to use",    "type": "regular", "stem": "gebruik","cefr": "A2", "emoji": "🛠️", "example": "Zij gebruikt haar telefoon veel."},
 
     # ── Irregular / strong ────────────────────────────────────────────
-    {"infinitive": "zijn",      "english": "to be",   "type": "irregular",
+    {"infinitive": "zijn",      "english": "to be",   "type": "irregular", "cefr": "A1", "emoji": "✨", "example": "Ik ben moe vandaag.",
      "irregular": {
          "present": {"ik": "ben", "jij": "bent", "u": "bent", "hij": "is", "zij": "is", "het": "is",
                      "wij": "zijn", "jullie": "zijn", "zij_pl": "zijn"},
          "past":    {"ik": "was", "jij": "was", "u": "was", "hij": "was", "zij": "was", "het": "was",
                      "wij": "waren", "jullie": "waren", "zij_pl": "waren"},
-         "perfect": {"ik": "ben geweest"},  # uses 'zijn' as auxiliary
+         "perfect": {"ik": "ben geweest"},
      }},
-    {"infinitive": "hebben",    "english": "to have", "type": "irregular",
+    {"infinitive": "hebben",    "english": "to have", "type": "irregular", "cefr": "A1", "emoji": "✋", "example": "Ik heb een vraag.",
      "irregular": {
          "present": {"ik": "heb", "jij": "hebt", "u": "hebt", "hij": "heeft", "zij": "heeft", "het": "heeft",
                      "wij": "hebben", "jullie": "hebben", "zij_pl": "hebben"},
@@ -105,7 +105,7 @@ VERBS = [
                      "wij": "hadden", "jullie": "hadden", "zij_pl": "hadden"},
          "perfect": {"ik": "heb gehad"},
      }},
-    {"infinitive": "gaan",      "english": "to go",   "type": "irregular",
+    {"infinitive": "gaan",      "english": "to go",   "type": "irregular", "cefr": "A1", "emoji": "🚶", "example": "Ik ga naar huis.",
      "irregular": {
          "present": {"ik": "ga", "jij": "gaat", "u": "gaat", "hij": "gaat", "zij": "gaat", "het": "gaat",
                      "wij": "gaan", "jullie": "gaan", "zij_pl": "gaan"},
@@ -113,7 +113,7 @@ VERBS = [
                      "wij": "gingen", "jullie": "gingen", "zij_pl": "gingen"},
          "perfect": {"ik": "is gegaan"},
      }},
-    {"infinitive": "komen",     "english": "to come",  "type": "irregular",
+    {"infinitive": "komen",     "english": "to come",  "type": "irregular", "cefr": "A1", "emoji": "🚪", "example": "Zij komt uit Nederland.",
      "irregular": {
          "present": {"ik": "kom", "jij": "komt", "u": "komt", "hij": "komt", "zij": "komt", "het": "komt",
                      "wij": "komen", "jullie": "komen", "zij_pl": "komen"},
@@ -121,7 +121,7 @@ VERBS = [
                      "wij": "kwamen", "jullie": "kwamen", "zij_pl": "kwamen"},
          "perfect": {"ik": "is gekomen"},
      }},
-    {"infinitive": "doen",      "english": "to do",    "type": "irregular",
+    {"infinitive": "doen",      "english": "to do",    "type": "irregular", "cefr": "A1", "emoji": "🛠️", "example": "Wat doe je vandaag?",
      "irregular": {
          "present": {"ik": "doe", "jij": "doet", "u": "doet", "hij": "doet", "zij": "doet", "het": "doet",
                      "wij": "doen", "jullie": "doen", "zij_pl": "doen"},
@@ -129,7 +129,7 @@ VERBS = [
                      "wij": "deden", "jullie": "deden", "zij_pl": "deden"},
          "perfect": {"ik": "heb gedaan"},
      }},
-    {"infinitive": "zien",      "english": "to see",   "type": "irregular",
+    {"infinitive": "zien",      "english": "to see",   "type": "irregular", "cefr": "A1", "emoji": "👀", "example": "Ik zie een vogel in de boom.",
      "irregular": {
          "present": {"ik": "zie", "jij": "ziet", "u": "ziet", "hij": "ziet", "zij": "ziet", "het": "ziet",
                      "wij": "zien", "jullie": "zien", "zij_pl": "zien"},
@@ -137,7 +137,7 @@ VERBS = [
                      "wij": "zagen", "jullie": "zagen", "zij_pl": "zagen"},
          "perfect": {"ik": "heb gezien"},
      }},
-    {"infinitive": "geven",     "english": "to give",  "type": "irregular",
+    {"infinitive": "geven",     "english": "to give",  "type": "irregular", "cefr": "A2", "emoji": "🎁", "example": "Ik geef je een cadeau.",
      "irregular": {
          "present": {"ik": "geef", "jij": "geeft", "u": "geeft", "hij": "geeft", "zij": "geeft", "het": "geeft",
                      "wij": "geven", "jullie": "geven", "zij_pl": "geven"},
@@ -145,7 +145,7 @@ VERBS = [
                      "wij": "gaven", "jullie": "gaven", "zij_pl": "gaven"},
          "perfect": {"ik": "heb gegeven"},
      }},
-    {"infinitive": "nemen",     "english": "to take",  "type": "irregular",
+    {"infinitive": "nemen",     "english": "to take",  "type": "irregular", "cefr": "A2", "emoji": "✋", "example": "Ik neem de trein naar Utrecht.",
      "irregular": {
          "present": {"ik": "neem", "jij": "neemt", "u": "neemt", "hij": "neemt", "zij": "neemt", "het": "neemt",
                      "wij": "nemen", "jullie": "nemen", "zij_pl": "nemen"},
@@ -153,7 +153,7 @@ VERBS = [
                      "wij": "namen", "jullie": "namen", "zij_pl": "namen"},
          "perfect": {"ik": "heb genomen"},
      }},
-    {"infinitive": "eten",      "english": "to eat",   "type": "irregular",
+    {"infinitive": "eten",      "english": "to eat",   "type": "irregular", "cefr": "A1", "emoji": "🍽️", "example": "Wij eten om zes uur.",
      "irregular": {
          "present": {"ik": "eet", "jij": "eet", "u": "eet", "hij": "eet", "zij": "eet", "het": "eet",
                      "wij": "eten", "jullie": "eten", "zij_pl": "eten"},
@@ -161,7 +161,7 @@ VERBS = [
                      "wij": "aten", "jullie": "aten", "zij_pl": "aten"},
          "perfect": {"ik": "heb gegeten"},
      }},
-    {"infinitive": "drinken",   "english": "to drink", "type": "irregular",
+    {"infinitive": "drinken",   "english": "to drink", "type": "irregular", "cefr": "A1", "emoji": "🥤", "example": "Ik drink koffie in de ochtend.",
      "irregular": {
          "present": {"ik": "drink", "jij": "drinkt", "u": "drinkt", "hij": "drinkt", "zij": "drinkt", "het": "drinkt",
                      "wij": "drinken", "jullie": "drinken", "zij_pl": "drinken"},
@@ -169,7 +169,7 @@ VERBS = [
                      "wij": "dronken", "jullie": "dronken", "zij_pl": "dronken"},
          "perfect": {"ik": "heb gedronken"},
      }},
-    {"infinitive": "spreken",   "english": "to speak", "type": "irregular",
+    {"infinitive": "spreken",   "english": "to speak", "type": "irregular", "cefr": "A1", "emoji": "🗣️", "example": "Spreekt u Nederlands?",
      "irregular": {
          "present": {"ik": "spreek", "jij": "spreekt", "u": "spreekt", "hij": "spreekt", "zij": "spreekt", "het": "spreekt",
                      "wij": "spreken", "jullie": "spreken", "zij_pl": "spreken"},
@@ -177,7 +177,7 @@ VERBS = [
                      "wij": "spraken", "jullie": "spraken", "zij_pl": "spraken"},
          "perfect": {"ik": "heb gesproken"},
      }},
-    {"infinitive": "schrijven", "english": "to write", "type": "irregular",
+    {"infinitive": "schrijven", "english": "to write", "type": "irregular", "cefr": "A1", "emoji": "✍️", "example": "Ik schrijf een brief.",
      "irregular": {
          "present": {"ik": "schrijf", "jij": "schrijft", "u": "schrijft", "hij": "schrijft", "zij": "schrijft", "het": "schrijft",
                      "wij": "schrijven", "jullie": "schrijven", "zij_pl": "schrijven"},
@@ -185,7 +185,7 @@ VERBS = [
                      "wij": "schreven", "jullie": "schreven", "zij_pl": "schreven"},
          "perfect": {"ik": "heb geschreven"},
      }},
-    {"infinitive": "lezen",     "english": "to read",  "type": "irregular",
+    {"infinitive": "lezen",     "english": "to read",  "type": "irregular", "cefr": "A1", "emoji": "📖", "example": "Zij leest een boek.",
      "irregular": {
          "present": {"ik": "lees", "jij": "leest", "u": "leest", "hij": "leest", "zij": "leest", "het": "leest",
                      "wij": "lezen", "jullie": "lezen", "zij_pl": "lezen"},
@@ -193,7 +193,7 @@ VERBS = [
                      "wij": "lazen", "jullie": "lazen", "zij_pl": "lazen"},
          "perfect": {"ik": "heb gelezen"},
      }},
-    {"infinitive": "lopen",     "english": "to walk",  "type": "irregular",
+    {"infinitive": "lopen",     "english": "to walk",  "type": "irregular", "cefr": "A1", "emoji": "🚶", "example": "Ik loop naar de winkel.",
      "irregular": {
          "present": {"ik": "loop", "jij": "loopt", "u": "loopt", "hij": "loopt", "zij": "loopt", "het": "loopt",
                      "wij": "lopen", "jullie": "lopen", "zij_pl": "lopen"},
@@ -201,7 +201,7 @@ VERBS = [
                      "wij": "liepen", "jullie": "liepen", "zij_pl": "liepen"},
          "perfect": {"ik": "heb gelopen"},
      }},
-    {"infinitive": "vinden",    "english": "to find",  "type": "irregular",
+    {"infinitive": "vinden",    "english": "to find",  "type": "irregular", "cefr": "A2", "emoji": "🔍", "example": "Ik vind het moeilijk.",
      "irregular": {
          "present": {"ik": "vind", "jij": "vindt", "u": "vindt", "hij": "vindt", "zij": "vindt", "het": "vindt",
                      "wij": "vinden", "jullie": "vinden", "zij_pl": "vinden"},
@@ -209,7 +209,7 @@ VERBS = [
                      "wij": "vonden", "jullie": "vonden", "zij_pl": "vonden"},
          "perfect": {"ik": "heb gevonden"},
      }},
-    {"infinitive": "kopen",     "english": "to buy",   "type": "irregular",
+    {"infinitive": "kopen",     "english": "to buy",   "type": "irregular", "cefr": "A2", "emoji": "🛒", "example": "Ik koop brood bij de bakker.",
      "irregular": {
          "present": {"ik": "koop", "jij": "koopt", "u": "koopt", "hij": "koopt", "zij": "koopt", "het": "koopt",
                      "wij": "kopen", "jullie": "kopen", "zij_pl": "kopen"},
@@ -219,7 +219,7 @@ VERBS = [
      }},
 
     # ── Modal / auxiliary ──────────────────────────────────────────────
-    {"infinitive": "kunnen",    "english": "can / to be able to", "type": "modal",
+    {"infinitive": "kunnen",    "english": "can / to be able to", "type": "modal", "cefr": "A1", "emoji": "💪", "example": "Ik kan Nederlands spreken.",
      "irregular": {
          "present": {"ik": "kan", "jij": "kan/kunt", "u": "kan/kunt", "hij": "kan", "zij": "kan", "het": "kan",
                      "wij": "kunnen", "jullie": "kunnen", "zij_pl": "kunnen"},
@@ -227,7 +227,7 @@ VERBS = [
                      "wij": "konden", "jullie": "konden", "zij_pl": "konden"},
          "perfect": {"ik": "heb gekund"},
      }},
-    {"infinitive": "moeten",    "english": "must / to have to", "type": "modal",
+    {"infinitive": "moeten",    "english": "must / to have to", "type": "modal", "cefr": "A1", "emoji": "⚠️", "example": "Ik moet naar school.",
      "irregular": {
          "present": {"ik": "moet", "jij": "moet", "u": "moet", "hij": "moet", "zij": "moet", "het": "moet",
                      "wij": "moeten", "jullie": "moeten", "zij_pl": "moeten"},
@@ -235,7 +235,7 @@ VERBS = [
                      "wij": "moesten", "jullie": "moesten", "zij_pl": "moesten"},
          "perfect": {"ik": "heb gemoeten"},
      }},
-    {"infinitive": "willen",    "english": "to want", "type": "modal",
+    {"infinitive": "willen",    "english": "to want", "type": "modal", "cefr": "A1", "emoji": "🙋", "example": "Ik wil graag een koffie.",
      "irregular": {
          "present": {"ik": "wil", "jij": "wil/wilt", "u": "wil/wilt", "hij": "wil", "zij": "wil", "het": "wil",
                      "wij": "willen", "jullie": "willen", "zij_pl": "willen"},

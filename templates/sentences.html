@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Sentence Builder{% endblock %}
+{% block content %}
+
+<h1>Sentence Builder</h1>
+<p class="subtitle">Tap words in correct order to build the Dutch sentence.</p>
+
+<div class="controls">
+    <div class="control-group">
+        <label>Level:</label>
+        <a href="/sentences" class="btn {% if not selected_level %}active{% endif %}">All</a>
+        {% for l in cefr_levels %}
+        <a href="?level={{ l }}" class="btn {% if selected_level == l %}active{% endif %}">{{ l }}</a>
+        {% endfor %}
+    </div>
+    <div class="control-group">
+        <a href="/sentences{% if selected_level %}?level={{ selected_level }}{% endif %}"
+           class="btn refresh">🔄 New Drill</a>
+    </div>
+</div>
+
+<div id="drill-container">
+    {% for item in items %}
+    <div class="drill-card sentence-card"
+         data-correct='{{ item.correct | tojson }}'>
+        <div class="prompt-label">Build the sentence</div>
+        <div class="sentence-english">{{ item.english }}</div>
+        <div class="card-meta">
+            <span class="cefr-badge cefr-{{ item.cefr|lower }}">{{ item.cefr }}</span>
+            <button class="speak-btn" data-word="{{ item.correct | join(' ') }}" title="Listen">🔊</button>
+        </div>
+        <div class="chips-container" id="chips-{{ loop.index0 }}"></div>
+        <div class="build-area" id="build-{{ loop.index0 }}">
+            <span class="build-placeholder">Tap words to build sentence...</span>
+        </div>
+        <div class="sentence-actions">
+            <button class="btn reset-btn">Clear</button>
+            <button class="btn submit-btn" disabled>Check</button>
+        </div>
+        <div class="feedback"></div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="score-bar" class="hidden">
+    <span id="score-text"></span>
+    <a href="/sentences{% if selected_level %}?level={{ selected_level }}{% endif %}" class="btn">🔄 Again</a>
+</div>
+
+<script>
+(function() {
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.speak-btn');
+        if (!btn) return;
+        const u = new SpeechSynthesisUtterance(btn.dataset.word);
+        u.lang = 'nl-NL'; u.rate = 0.85;
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+    });
+
+    const cards = document.querySelectorAll('.sentence-card');
+    let total = cards.length, done = 0, correct = 0;
+
+    cards.forEach((card, idx) => {
+        const correctOrder = JSON.parse(card.dataset.correct);
+        let built = [];
+
+        const chipsEl = card.querySelector('.chips-container');
+        const buildEl = card.querySelector('.build-area');
+        const submitBtn = card.querySelector('.submit-btn');
+        const resetBtn = card.querySelector('.reset-btn');
+        const feedback = card.querySelector('.feedback');
+        const placeholder = card.querySelector('.build-placeholder');
+
+        // Shuffle words for display
+        const shuffled = [...correctOrder].sort(() => Math.random() - 0.5);
+
+        function renderChips() {
+            chipsEl.innerHTML = '';
+            buildEl.innerHTML = '';
+            shuffled.forEach((word, i) => {
+                const chip = document.createElement('button');
+                chip.className = 'word-chip';
+                chip.textContent = word;
+                chip.onclick = function() {
+                    if (card.classList.contains('done')) return;
+                    built.push(word);
+                    renderBuilt();
+                    renderChips();
+                };
+                if (!built.includes(word) || built.filter(w => w === word).length > correctOrder.filter(w => w === word).length) {
+                    chipsEl.appendChild(chip);
+                }
+            });
+            if (!chipsEl.children.length && !card.classList.contains('done')) {
+                chipsEl.innerHTML = '<span class="dim-text">All words used</span>';
+            }
+        }
+
+        function renderBuilt() {
+            buildEl.innerHTML = '';
+            if (!built.length) {
+                buildEl.innerHTML = '<span class="build-placeholder">Tap words to build sentence...</span>';
+            } else {
+                built.forEach((word, i) => {
+                    const chip = document.createElement('span');
+                    chip.className = 'built-word';
+                    chip.textContent = word + ' ';
+                    if (!card.classList.contains('done')) {
+                        chip.onclick = function() {
+                            built.splice(i, 1);
+                            renderBuilt();
+                            renderChips();
+                        };
+                    }
+                    buildEl.appendChild(chip);
+                });
+            }
+            submitBtn.disabled = built.length !== correctOrder.length;
+        }
+
+        renderChips();
+
+        resetBtn.onclick = function() {
+            if (card.classList.contains('done')) return;
+            built = [];
+            renderBuilt();
+            renderChips();
+        };
+
+        submitBtn.onclick = function() {
+            if (card.classList.contains('done')) return;
+            fetch('/sentences/check', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ order: built, correct: correctOrder }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                done++;
+                card.classList.add('done');
+                submitBtn.disabled = true;
+                resetBtn.disabled = true;
+                if (data.correct) {
+                    correct++;
+                    card.classList.add('correct');
+                    feedback.textContent = '✓ Perfect!';
+                    feedback.className = 'feedback feedback-ok';
+                } else {
+                    card.classList.add('wrong');
+                    feedback.innerHTML = '✗ <span class="expected">' + data.correct_order + '</span>';
+                    feedback.className = 'feedback feedback-bad';
+                }
+                feedback.scrollIntoView(false);
+                // Disable all chip clicks
+                card.querySelectorAll('.word-chip, .built-word').forEach(el => el.style.pointerEvents = 'none');
+                const next = card.nextElementSibling;
+                if (next && next.classList.contains('sentence-card') && !next.classList.contains('done'))
+                    setTimeout(() => next.scrollIntoView(false), 700);
+                if (done === total) {
+                    document.getElementById('score-bar').classList.remove('hidden');
+                    document.getElementById('score-text').textContent = correct + ' / ' + total + ' correct (' + Math.round(100 * correct / total) + '%)';
+                }
+            });
+        };
+    });
+})();
+</script>
+
+{% endblock %}

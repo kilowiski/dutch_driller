@@ -24,12 +24,24 @@
     <div class="drill-card" data-infinitive="{{ item.infinitive }}"
          data-tense="{{ item.tense }}" data-pronoun="{{ item.pronoun }}">
         <div class="prompt-label">Conjugate:</div>
-        <div class="prompt-word">{{ item.infinitive }}</div>
+        <div class="prompt-word">
+            {{ item.infinitive }}
+            <button class="speak-btn" data-word="{{ item.infinitive }}" title="Listen">🔊</button>
+        </div>
+        <div class="card-meta">
+            <span class="verb-hint">{{ item.english }}</span>
+            {% if item.cefr %}
+            <span class="cefr-badge cefr-{{ item.cefr|lower }}">{{ item.cefr }}</span>
+            {% endif %}
+            {% if item.emoji %}
+            <span class="emoji-hint" title="Hint">{{ item.emoji }}</span>
+            {% endif %}
+        </div>
         <div class="conjugation-prompt">
             <strong>{{ item.pronoun }}</strong>
             <span class="pronoun-hint">({{ item.pronoun_label }})</span>
         </div>
-        <div class="verb-hint">{{ item.english }}</div>
+        <div class="example-sentence hidden">{{ item.example }}</div>
         <input type="text" class="answer-input" placeholder="Type conjugated form..."
                autocomplete="off" autocapitalize="off" spellcheck="false">
         <div class="feedback"></div>
@@ -44,6 +56,18 @@
 
 <script>
 (function() {
+    // Voice: speak Dutch word on click
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.speak-btn');
+        if (!btn) return;
+        const word = btn.dataset.word;
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'nl-NL';
+        utterance.rate = 0.85;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(utterance);
+    });
+
     const cards = document.querySelectorAll('.drill-card');
     let total = cards.length;
     let done = 0;
@@ -83,14 +107,14 @@
                     card.classList.add('done');
                     input.disabled = true;
 
-                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    feedback.scrollIntoView(false);
 
                     const next = card.nextElementSibling;
                     if (next && next.classList.contains('drill-card') && !next.classList.contains('done')) {
                         setTimeout(() => {
                             next.querySelector('.answer-input').focus();
-                            next.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }, 400);
+                            next.scrollIntoView(false);
+                        }, 700);
                     }
 
                     if (done === total) {

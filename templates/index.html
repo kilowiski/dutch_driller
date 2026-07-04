@@ -8,7 +8,7 @@
 <div class="card-grid">
     <a href="/vocab" class="card">
         <h2>📝 Vocabulary</h2>
-        <p>Dutch ↔ English flashcard drills. Pick a category or hit everything.</p>
+        <p>Dutch ↔ English flashcards. 100+ words across 11 categories.</p>
         {% if vocab_total %}
         <div class="stat">{{ vocab_pct }}% correct ({{ vocab_total }} attempts)</div>
         {% else %}
@@ -16,14 +16,26 @@
         {% endif %}
     </a>
 
+    <a href="/phrases" class="card">
+        <h2>💬 Phrases</h2>
+        <p>50 survival phrases by scenario: restaurant, shopping, travel, small talk.</p>
+        <div class="stat dim">New!</div>
+    </a>
+
     <a href="/conjugate" class="card">
         <h2>🔤 Conjugation</h2>
-        <p>Present, past, perfect. Regular and irregular verbs. Type the form.</p>
+        <p>24 verbs, 3 tenses. Present, past, perfect. Regular and irregular.</p>
         {% if conj_total %}
         <div class="stat">{{ conj_pct }}% correct ({{ conj_total }} attempts)</div>
         {% else %}
         <div class="stat dim">No attempts yet</div>
         {% endif %}
+    </a>
+
+    <a href="/sentences" class="card">
+        <h2>🧩 Sentence Builder</h2>
+        <p>JLPT-style word ordering. A1 to B1. Tap words in correct sequence.</p>
+        <div class="stat dim">New!</div>
     </a>
 </div>
 
