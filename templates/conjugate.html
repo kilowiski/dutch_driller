@@ -26,7 +26,6 @@
         <div class="prompt-label">Conjugate:</div>
         <div class="prompt-word">
             {{ item.infinitive }}
-            <button class="speak-btn" data-word="{{ item.infinitive }}" title="Listen">🔊</button>
         </div>
         <div class="card-meta">
             <span class="verb-hint">{{ item.english }}</span>
@@ -52,6 +51,7 @@
 <div id="score-bar" class="hidden">
     <span id="score-text"></span>
     <a href="/conjugate?tense={{ tense }}" class="btn">🔄 Again</a>
+    <div class="unlock-hint">Want more? <a href="/admin">Generate new content</a></div>
 </div>
 
 <script>

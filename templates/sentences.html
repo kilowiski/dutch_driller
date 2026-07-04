@@ -27,7 +27,6 @@
         <div class="sentence-english">{{ item.english }}</div>
         <div class="card-meta">
             <span class="cefr-badge cefr-{{ item.cefr|lower }}">{{ item.cefr }}</span>
-            <button class="speak-btn" data-word="{{ item.correct | join(' ') }}" title="Listen">🔊</button>
         </div>
         <div class="chips-container" id="chips-{{ loop.index0 }}"></div>
         <div class="build-area" id="build-{{ loop.index0 }}">
@@ -45,6 +44,7 @@
 <div id="score-bar" class="hidden">
     <span id="score-text"></span>
     <a href="/sentences{% if selected_level %}?level={{ selected_level }}{% endif %}" class="btn">🔄 Again</a>
+    <div class="unlock-hint">Want more? <a href="/admin">Generate new content</a></div>
 </div>
 
 <script>

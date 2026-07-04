@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+
+<h1>Admin — Dutch Driller</h1>
+
+<h2>Database Stats</h2>
+<div class="tense-grid" style="margin-bottom:24px">
+    <div class="tense-stat">
+        <span class="tense-name">Vocab</span>
+        <span class="stat good" style="font-size:1.5rem">{{ counts.vocab }}</span>
+        <span class="tense-count">words</span>
+    </div>
+    <div class="tense-stat">
+        <span class="tense-name">Verbs</span>
+        <span class="stat good" style="font-size:1.5rem">{{ counts.verbs }}</span>
+        <span class="tense-count">verbs</span>
+    </div>
+    <div class="tense-stat">
+        <span class="tense-name">Phrases</span>
+        <span class="stat good" style="font-size:1.5rem">{{ counts.phrases }}</span>
+        <span class="tense-count">phrases</span>
+    </div>
+    <div class="tense-stat">
+        <span class="tense-name">Sentences</span>
+        <span class="stat good" style="font-size:1.5rem">{{ counts.sentences }}</span>
+        <span class="tense-count">exercises</span>
+    </div>
+</div>
+
+<h2>Generate New Content</h2>
+
+<div class="drill-card" style="margin-bottom:12px">
+    <h3 style="margin-bottom:10px">Vocabulary</h3>
+    <div class="controls" style="margin-bottom:0">
+        <select class="btn" id="vocab-level">
+            <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
+        </select>
+        <input type="text" class="answer-input" id="vocab-category" placeholder="Category (optional)" style="width:auto;flex:1">
+        <input type="number" class="answer-input" id="vocab-count" value="5" min="1" max="10" style="width:60px">
+        <button class="btn refresh" onclick="generate('vocab')">Generate</button>
+    </div>
+    <div class="feedback" id="vocab-result"></div>
+</div>
+
+<div class="drill-card" style="margin-bottom:12px">
+    <h3 style="margin-bottom:10px">Verbs</h3>
+    <div class="controls" style="margin-bottom:0">
+        <select class="btn" id="verb-level">
+            <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
+        </select>
+        <input type="number" class="answer-input" id="verb-count" value="5" min="1" max="10" style="width:60px">
+        <button class="btn refresh" onclick="generate('verb')">Generate</button>
+    </div>
+    <div class="feedback" id="verb-result"></div>
+</div>
+
+<div class="drill-card" style="margin-bottom:12px">
+    <h3 style="margin-bottom:10px">Phrases</h3>
+    <div class="controls" style="margin-bottom:0">
+        <select class="btn" id="phrase-level">
+            <option>A1</option><option>A2</option><option>B1</option>
+        </select>
+        <input type="number" class="answer-input" id="phrase-count" value="5" min="1" max="10" style="width:60px">
+        <button class="btn refresh" onclick="generate('phrase')">Generate</button>
+    </div>
+    <div class="feedback" id="phrase-result"></div>
+</div>
+
+<div class="drill-card" style="margin-bottom:12px">
+    <h3 style="margin-bottom:10px">Sentence Builder</h3>
+    <div class="controls" style="margin-bottom:0">
+        <select class="btn" id="sentence-level">
+            <option>A1</option><option>A2</option><option>B1</option>
+        </select>
+        <input type="number" class="answer-input" id="sentence-count" value="5" min="1" max="10" style="width:60px">
+        <button class="btn refresh" onclick="generate('sentence')">Generate</button>
+    </div>
+    <div class="feedback" id="sentence-result"></div>
+</div>
+
+<script>
+function generate(type) {
+    const level = document.getElementById(type + '-level').value;
+    const count = document.getElementById(type + '-count').value;
+    const resultEl = document.getElementById(type + '-result');
+    const body = { type, level, count: parseInt(count) };
+
+    if (type === 'vocab') {
+        body.category = document.getElementById('vocab-category').value;
+    }
+
+    resultEl.textContent = 'Generating...';
+    resultEl.className = 'feedback';
+
+    fetch('/generate?pw={{ pw }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            resultEl.textContent = 'Error: ' + data.error;
+            resultEl.className = 'feedback feedback-bad';
+        } else {
+            resultEl.textContent = 'Generated ' + data.generated + ', inserted ' + data.inserted + ' new. Reload to see updated counts.';
+            resultEl.className = 'feedback feedback-ok';
+        }
+    })
+    .catch(e => {
+        resultEl.textContent = 'Failed: ' + e.message;
+        resultEl.className = 'feedback feedback-bad';
+    });
+}
+</script>
+
+{% endblock %}

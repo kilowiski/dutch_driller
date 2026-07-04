@@ -38,7 +38,6 @@
         </div>
         <div class="prompt-word">
             {{ item.prompt }}
-            <button class="speak-btn" data-word="{{ item.dutch }}" title="Listen">🔊</button>
         </div>
         <div class="card-meta">
             {% if item.cefr %}
@@ -56,6 +55,7 @@
     <span id="score-text"></span>
     <a href="/phrases?direction={{ direction }}{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
        class="btn">🔄 Again</a>
+    <div class="unlock-hint">Want more? <a href="/admin">Generate new content</a></div>
 </div>
 
 <script>
