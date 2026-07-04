@@ -5,13 +5,15 @@ LLM utilities: explain wrong answers (with cache), generate new content.
 import os, json, urllib.request
 from models import llm_cache_lookup, llm_cache_store
 
-DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+
+def _get_key():
+    return os.environ.get("DEEPSEEK_API_KEY", "")
 
 
 def _llm_check(dutch, english, expected, user_answer):
     """Ask LLM whether the user's answer is an acceptable translation."""
-    if not DEEPSEEK_KEY:
+    if not _get_key():
         return None
     try:
         prompt = (
@@ -30,7 +32,7 @@ def _llm_check(dutch, english, expected, user_answer):
         }).encode("utf-8")
         req = urllib.request.Request(DEEPSEEK_URL, data=payload, headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+            "Authorization": f"Bearer {_get_key()}",
         })
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = json.loads(resp.read())
@@ -44,7 +46,7 @@ def _llm_check(dutch, english, expected, user_answer):
 
 def explain(dutch, english, expected, user_answer):
     """Look up in cache, call LLM if needed, store result."""
-    if not DEEPSEEK_KEY:
+    if not _get_key():
         return {"acceptable": False, "explanation": "LLM not configured. Set DEEPSEEK_API_KEY env var."}
     cached = llm_cache_lookup(dutch, expected, user_answer)
     if cached:
@@ -59,7 +61,7 @@ def explain(dutch, english, expected, user_answer):
 
 def generate(content_type, level, count, category, get_existing):
     """Generate new content via LLM. get_existing is a callback to get current items to avoid."""
-    if not DEEPSEEK_KEY:
+    if not _get_key():
         return None, "DEEPSEEK_API_KEY not set"
 
     existing = get_existing()
@@ -108,7 +110,7 @@ def generate(content_type, level, count, category, get_existing):
         }).encode("utf-8")
         req = urllib.request.Request(DEEPSEEK_URL, data=payload, headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+            "Authorization": f"Bearer {_get_key()}",
         })
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = json.loads(resp.read())
