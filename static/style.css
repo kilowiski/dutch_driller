@@ -258,6 +258,10 @@ h1 {
 .answer-input:focus { border-color: #58a6ff; }
 .answer-input:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* strip search-input browser chrome */
+.answer-input[type="search"]::-webkit-search-cancel-button,
+.answer-input[type="search"]::-webkit-search-decoration { display: none; }
+
 .done .answer-input { border-color: transparent; }
 
 .feedback {

@@ -45,8 +45,8 @@
             <span class="cefr-badge cefr-{{ item.cefr|lower }}">{{ item.cefr }}</span>
             {% endif %}
         </div>
-        <input type="text" class="answer-input" placeholder="Type your answer..."
-               autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input type="search" class="answer-input" placeholder="Type your answer..."
+               autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
         <div class="example-sentence hidden">{{ item.example }}</div>
         <div class="feedback"></div>
     </div>
@@ -125,10 +125,9 @@
                         feedback.appendChild(correctBtn);
                     }
                     card.classList.add('done'); input.disabled = true;
-                    feedback.scrollIntoView(false);
                     const next = card.nextElementSibling;
                     if (next && next.classList.contains('drill-card') && !next.classList.contains('done'))
-                        setTimeout(() => { next.querySelector('.answer-input').focus(); next.scrollIntoView(false); }, 700);
+                        setTimeout(() => next.querySelector('.answer-input').focus(), 100);
                     if (done === total) { document.getElementById('score-bar').classList.remove('hidden'); document.getElementById('score-text').textContent = correct + ' / ' + total + ' correct (' + Math.round(100 * correct / total) + '%)'; }
                 });
             }

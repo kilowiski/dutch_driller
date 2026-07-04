@@ -39,8 +39,8 @@
             <span class="pronoun-hint">({{ item.pronoun_label }})</span>
         </div>
         <div class="example-sentence hidden">{{ item.example }}</div>
-        <input type="text" class="answer-input" placeholder="Type conjugated form..."
-               autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input type="search" class="answer-input" placeholder="Type conjugated form..."
+               autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
         <div class="feedback"></div>
     </div>
     {% endfor %}
@@ -127,15 +127,9 @@
                     card.classList.add('done');
                     input.disabled = true;
 
-                    feedback.scrollIntoView(false);
-
                     const next = card.nextElementSibling;
-                    if (next && next.classList.contains('drill-card') && !next.classList.contains('done')) {
-                        setTimeout(() => {
-                            next.querySelector('.answer-input').focus();
-                            next.scrollIntoView(false);
-                        }, 700);
-                    }
+                    if (next && next.classList.contains('drill-card') && !next.classList.contains('done'))
+                        setTimeout(() => next.querySelector('.answer-input').focus(), 100);
 
                     if (done === total) {
                         document.getElementById('score-bar').classList.remove('hidden');
