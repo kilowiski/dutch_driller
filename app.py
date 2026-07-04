@@ -341,12 +341,14 @@ def conjugate_drill():
     drill_items = []
     for item in items:
         correct_form = engine.conjugate(item, tense, item["pronoun"])
+        pronoun_raw = item["pronoun"]
         drill_items.append({
             "infinitive": item["infinitive"],
             "translation": item["translation"],
             "tense": tense,
-            "pronoun": item["pronoun"],
-            "pronoun_label": engine.pronouns[item["pronoun"]],
+            "pronoun": pronoun_raw,
+            "pronoun_display": pronoun_raw.replace("_pl", ""),
+            "pronoun_label": engine.pronouns[pronoun_raw],
             "correct_form": correct_form,
             "cefr": item.get("cefr", ""),
             "example": item.get("example", ""),
