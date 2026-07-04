@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Conjugation Drill{% endblock %}
+{% block content %}
+
+<h1>Conjugation Drill</h1>
+
+<div class="controls">
+    <div class="control-group">
+        <label>Tense:</label>
+        {% for t in tenses %}
+        <a href="?tense={{ t }}" class="btn {% if tense == t %}active{% endif %}">{{ t }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="control-group">
+        <a href="?tense={{ tense }}" class="btn refresh">🔄 New Drill</a>
+    </div>
+</div>
+
+<p class="tense-hint">{{ tense_label }}</p>
+
+<div id="drill-container">
+    {% for item in items %}
+    <div class="drill-card" data-infinitive="{{ item.infinitive }}"
+         data-tense="{{ item.tense }}" data-pronoun="{{ item.pronoun }}">
+        <div class="prompt-label">Conjugate:</div>
+        <div class="prompt-word">{{ item.infinitive }}</div>
+        <div class="conjugation-prompt">
+            <strong>{{ item.pronoun }}</strong>
+            <span class="pronoun-hint">({{ item.pronoun_label }})</span>
+        </div>
+        <div class="verb-hint">{{ item.english }}</div>
+        <input type="text" class="answer-input" placeholder="Type conjugated form..."
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="feedback"></div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="score-bar" class="hidden">
+    <span id="score-text"></span>
+    <a href="/conjugate?tense={{ tense }}" class="btn">🔄 Again</a>
+</div>
+
+<script>
+(function() {
+    const cards = document.querySelectorAll('.drill-card');
+    let total = cards.length;
+    let done = 0;
+    let correct = 0;
+
+    cards.forEach(card => {
+        const input = card.querySelector('.answer-input');
+        const feedback = card.querySelector('.feedback');
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && input.value.trim() && !card.classList.contains('done')) {
+                const answer = input.value.trim();
+
+                fetch('/conjugate/check', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        answer: answer,
+                        infinitive: card.dataset.infinitive,
+                        tense: card.dataset.tense,
+                        pronoun: card.dataset.pronoun,
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    done++;
+                    if (data.correct) {
+                        correct++;
+                        card.classList.add('correct');
+                        feedback.textContent = '✓ Correct!';
+                        feedback.className = 'feedback feedback-ok';
+                    } else {
+                        card.classList.add('wrong');
+                        feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>';
+                        feedback.className = 'feedback feedback-bad';
+                    }
+                    card.classList.add('done');
+                    input.disabled = true;
+
+                    const next = card.nextElementSibling;
+                    if (next && next.classList.contains('drill-card') && !next.classList.contains('done')) {
+                        next.querySelector('.answer-input').focus();
+                    }
+
+                    if (done === total) {
+                        document.getElementById('score-bar').classList.remove('hidden');
+                        document.getElementById('score-text').textContent =
+                            correct + ' / ' + total + ' correct (' +
+                            Math.round(100 * correct / total) + '%)';
+                    }
+                });
+            }
+        });
+    });
+
+    if (cards.length) cards[0].querySelector('.answer-input').focus();
+})();
+</script>
+
+{% endblock %}

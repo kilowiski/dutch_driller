@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Dutch Driller{% endblock %}
+{% block content %}
+
+<h1>Drill Dutch. No bullshit.</h1>
+<p class="subtitle">Pick a drill and start typing.</p>
+
+<div class="card-grid">
+    <a href="/vocab" class="card">
+        <h2>📝 Vocabulary</h2>
+        <p>Dutch ↔ English flashcard drills. Pick a category or hit everything.</p>
+        {% if vocab_total %}
+        <div class="stat">{{ vocab_pct }}% correct ({{ vocab_total }} attempts)</div>
+        {% else %}
+        <div class="stat dim">No attempts yet</div>
+        {% endif %}
+    </a>
+
+    <a href="/conjugate" class="card">
+        <h2>🔤 Conjugation</h2>
+        <p>Present, past, perfect. Regular and irregular verbs. Type the form.</p>
+        {% if conj_total %}
+        <div class="stat">{{ conj_pct }}% correct ({{ conj_total }} attempts)</div>
+        {% else %}
+        <div class="stat dim">No attempts yet</div>
+        {% endif %}
+    </a>
+</div>
+
+{% endblock %}

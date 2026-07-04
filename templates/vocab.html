@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Vocabulary Drill{% endblock %}
+{% block content %}
+
+<h1>Vocabulary Drill</h1>
+
+<div class="controls">
+    <div class="control-group">
+        <label>Direction:</label>
+        <a href="?direction=nl_en{% if selected_category %}&category={{ selected_category }}{% endif %}"
+           class="btn {% if direction == 'nl_en' %}active{% endif %}">🇳🇱 → 🇬🇧</a>
+        <a href="?direction=en_nl{% if selected_category %}&category={{ selected_category }}{% endif %}"
+           class="btn {% if direction == 'en_nl' %}active{% endif %}">🇬🇧 → 🇳🇱</a>
+    </div>
+
+    <div class="control-group">
+        <label>Category:</label>
+        <a href="?direction={{ direction }}" class="btn {% if not selected_category %}active{% endif %}">All</a>
+        {% for cat in categories %}
+        <a href="?direction={{ direction }}&category={{ cat }}"
+           class="btn {% if selected_category == cat %}active{% endif %}">{{ cat }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="control-group">
+        <a href="?direction={{ direction }}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+           class="btn refresh">🔄 New Drill</a>
+    </div>
+</div>
+
+<div id="drill-container">
+    {% for item in items %}
+    <div class="drill-card" data-dutch="{{ item.dutch }}" data-english="{{ item.english }}"
+         data-category="{{ item.category }}" data-direction="{{ direction }}">
+        <div class="prompt-label">
+            {% if direction == 'nl_en' %}Dutch{% else %}English{% endif %}
+        </div>
+        <div class="prompt-word">{{ item.prompt }}</div>
+        <div class="category-tag">{{ item.category }}</div>
+        <input type="text" class="answer-input" placeholder="Type your answer..."
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="feedback"></div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="score-bar" class="hidden">
+    <span id="score-text"></span>
+    <a href="/vocab?direction={{ direction }}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+       class="btn">🔄 Again</a>
+</div>
+
+<script>
+(function() {
+    const cards = document.querySelectorAll('.drill-card');
+    let total = cards.length;
+    let done = 0;
+    let correct = 0;
+
+    cards.forEach(card => {
+        const input = card.querySelector('.answer-input');
+        const feedback = card.querySelector('.feedback');
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && input.value.trim() && !card.classList.contains('done')) {
+                const answer = input.value.trim();
+
+                fetch('/vocab/check', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        answer: answer,
+                        dutch: card.dataset.dutch,
+                        english: card.dataset.english,
+                        category: card.dataset.category,
+                        direction: card.dataset.direction,
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    done++;
+                    if (data.correct) {
+                        correct++;
+                        card.classList.add('correct');
+                        feedback.textContent = '✓ Correct!';
+                        feedback.className = 'feedback feedback-ok';
+                    } else {
+                        card.classList.add('wrong');
+                        feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>';
+                        feedback.className = 'feedback feedback-bad';
+                    }
+                    card.classList.add('done');
+                    input.disabled = true;
+
+                    // Auto-focus next unanswered
+                    const next = card.nextElementSibling;
+                    if (next && next.classList.contains('drill-card') && !next.classList.contains('done')) {
+                        next.querySelector('.answer-input').focus();
+                    }
+
+                    if (done === total) {
+                        document.getElementById('score-bar').classList.remove('hidden');
+                        document.getElementById('score-text').textContent =
+                            correct + ' / ' + total + ' correct (' +
+                            Math.round(100 * correct / total) + '%)';
+                    }
+                });
+            }
+        });
+    });
+
+    // Focus first input
+    if (cards.length) cards[0].querySelector('.answer-input').focus();
+})();
+</script>
+
+{% endblock %}
