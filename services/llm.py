@@ -79,7 +79,7 @@ def generate(content_type, level, count, category, get_existing, lang_name="Dutc
     existing = set(k.lower() for k in get_existing())
     seen_keys.update(existing)
 
-    max_retries = 4
+    max_retries = 20
     for attempt in range(max_retries):
         needed = count - len(collected)
         if needed <= 0:
