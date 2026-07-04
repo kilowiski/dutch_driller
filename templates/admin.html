@@ -105,8 +105,14 @@ function generate(type) {
             resultEl.textContent = 'Error: ' + data.error;
             resultEl.className = 'feedback feedback-bad';
         } else {
-            resultEl.textContent = 'Generated ' + data.generated + ', inserted ' + data.inserted + ' new. Reload to see updated counts.';
-            resultEl.className = 'feedback feedback-ok';
+            let msg = 'Generated ' + data.generated + ', inserted ' + data.inserted + ' new.';
+            if (data.skipped && data.skipped.length > 0) {
+                msg += ' Skipped ' + data.skipped.length + ' duplicate(s): ' + data.skipped.join(', ') + '. Reload to see updated counts.';
+                resultEl.className = 'feedback feedback-bad';
+            } else {
+                resultEl.className = 'feedback feedback-ok';
+            }
+            resultEl.textContent = msg;
         }
     })
     .catch(e => {

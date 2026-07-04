@@ -70,7 +70,7 @@ def generate(content_type, level, count, category, get_existing):
         prompt = (
             f"Generate {count} new Dutch vocabulary words at CEFR level {level}."
             + (f" Category theme: {category}." if category else "")
-            + f" Do NOT include any of these existing words: {', '.join(existing[:50])}."
+            + f" Do NOT include any of these existing words: {', '.join(existing[:200])}."
             + f" For each word provide: word (the Dutch word with article de/het), translation (English), category (one word),"
             + f" and example (a simple Dutch sentence using the word)."
             + f" Reply ONLY with a JSON array of objects like: "
@@ -94,7 +94,7 @@ def generate(content_type, level, count, category, get_existing):
     else:  # sentence
         prompt = (
             f"Generate {count} new Dutch sentence-ordering exercises at level {level}."
-            + f" Do NOT include English sentences like: {', '.join(existing[:30])}."
+            + f" Do NOT include English sentences like: {', '.join(existing[:100])}."
             + f" For each provide: correct (array of words in correct Dutch order), english."
             + f" Reply ONLY with a JSON array."
         )

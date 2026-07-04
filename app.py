@@ -516,6 +516,7 @@ def generate_content():
         return jsonify({"error": error}), 400
 
     inserted = 0
+    skipped = []
     for item in items:
         try:
             if content_type == "vocab":
@@ -529,9 +530,14 @@ def generate_content():
                 insert_sentence(item["correct"], item["english"], level, lang)
             inserted += 1
         except Exception:
-            pass
+            skipped.append(item.get("word") or item.get("infinitive") or item.get("english", "?"))
 
-    return jsonify({"success": True, "generated": len(items), "inserted": inserted})
+    return jsonify({
+        "success": True,
+        "generated": len(items),
+        "inserted": inserted,
+        "skipped": skipped,
+    })
 
 
 
