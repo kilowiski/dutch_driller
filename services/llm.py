@@ -67,10 +67,12 @@ def generate(content_type, level, count, category, get_existing, lang_name="Dutc
     existing = get_existing()
 
     if content_type == "vocab":
+        existing_list = ', '.join(existing)
         prompt = (
-            f"Generate {count} new {lang_name} vocabulary words at CEFR level {level}."
+            f"Generate {count} brand-new {lang_name} vocabulary words at CEFR level {level}."
             + (f" Category theme: {category}." if category else "")
-            + f" Do NOT include any of these existing words: {', '.join(existing[:200])}."
+            + f" These words ALREADY EXIST — do NOT repeat any of them: {existing_list}."
+            + f" You MUST generate words that are NOT in that list. If you cannot find enough new words, generate fewer."
             + f" For each word provide: word (the {lang_name} word with article), translation (English), category (one word),"
             + f" and example (a simple {lang_name} sentence using the word)."
             + f" Reply ONLY with a JSON array of objects."
@@ -105,7 +107,7 @@ def generate(content_type, level, count, category, get_existing, lang_name="Dutc
                 {"role": "system", "content": f"You are a {lang_name} language teacher. Reply ONLY with valid JSON arrays. No markdown, no explanation."},
                 {"role": "user", "content": prompt},
             ],
-            "temperature": 0.7, "max_tokens": 2000,
+            "temperature": 0.9, "max_tokens": 4000,
         }).encode("utf-8")
         req = urllib.request.Request(DEEPSEEK_URL, data=payload, headers={
             "Content-Type": "application/json",

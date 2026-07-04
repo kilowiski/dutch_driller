@@ -596,12 +596,12 @@ def generate_content():
     data = request.get_json()
     content_type = data.get("type", "vocab")
     level = data.get("level", "A1")
-    count = min(int(data.get("count", 5)), 10)
+    count = min(int(data.get("count", 5)), 50)
     category = data.get("category", "")
     lang = data.get("lang", DEFAULT_LANG)
 
     if content_type == "vocab":
-        get_existing = lambda: [w["word"] for w in get_vocab_words(lang=lang)]
+        get_existing = lambda: [w["word"] for w in get_vocab_words(lang=lang) if (level == w.get("cefr", ""))]
     elif content_type == "verb":
         get_existing = lambda: [v["infinitive"] for v in get_engine(lang).get_verbs(lang)]
     elif content_type == "phrase":

@@ -38,7 +38,7 @@
             <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
         </select>
         <input type="text" class="answer-input" id="vocab-category" placeholder="Category (optional)" style="width:auto;flex:1">
-        <input type="number" class="answer-input" id="vocab-count" value="5" min="1" max="10" style="width:60px">
+        <input type="number" class="answer-input" id="vocab-count" value="5" min="1" max="50" style="width:65px" title="Max 50">
         <button class="btn refresh" onclick="generate('vocab')">Generate</button>
     </div>
     <div class="feedback" id="vocab-result"></div>
@@ -50,7 +50,7 @@
         <select class="btn" id="verb-level">
             <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
         </select>
-        <input type="number" class="answer-input" id="verb-count" value="5" min="1" max="10" style="width:60px">
+        <input type="number" class="answer-input" id="verb-count" value="5" min="1" max="50" style="width:65px" title="Max 50">
         <button class="btn refresh" onclick="generate('verb')">Generate</button>
     </div>
     <div class="feedback" id="verb-result"></div>
@@ -62,7 +62,7 @@
         <select class="btn" id="phrase-level">
             <option>A1</option><option>A2</option><option>B1</option>
         </select>
-        <input type="number" class="answer-input" id="phrase-count" value="5" min="1" max="10" style="width:60px">
+        <input type="number" class="answer-input" id="phrase-count" value="5" min="1" max="50" style="width:65px" title="Max 50">
         <button class="btn refresh" onclick="generate('phrase')">Generate</button>
     </div>
     <div class="feedback" id="phrase-result"></div>
@@ -74,7 +74,7 @@
         <select class="btn" id="sentence-level">
             <option>A1</option><option>A2</option><option>B1</option>
         </select>
-        <input type="number" class="answer-input" id="sentence-count" value="5" min="1" max="10" style="width:60px">
+        <input type="number" class="answer-input" id="sentence-count" value="5" min="1" max="50" style="width:65px" title="Max 50">
         <button class="btn refresh" onclick="generate('sentence')">Generate</button>
     </div>
     <div class="feedback" id="sentence-result"></div>
