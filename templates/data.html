@@ -30,7 +30,21 @@
     <div class="control-group">
         <a href="/data?lang={{ lang_code }}&table={{ table }}" class="btn refresh">🔄 Refresh</a>
     </div>
+    {% if table in csv_tables %}
+    <div class="control-group">
+        <a href="/data/export?lang={{ lang_code }}&table={{ table }}" class="btn">⬇ Download CSV</a>
+        <button class="btn" id="upload-btn">⬆ Upload CSV</button>
+        <input type="file" id="csv-file" accept=".csv" style="display:none">
+    </div>
+    {% endif %}
 </div>
+
+{% if table in csv_tables %}
+<div class="table-info">
+    CSV columns: <code>{{ csv_columns | join(', ') }}</code> — <a href="/data/export?lang={{ lang_code }}&table={{ table }}">download template</a> to see the exact format.
+    <span id="import-result" style="margin-left:12px"></span>
+</div>
+{% endif %}
 
 {% if rows %}
 <div class="data-table-wrap">
@@ -132,6 +146,35 @@
             if (e.key === 'Escape') { input.value = oldValue; input.blur(); }
         });
     });
+
+    // CSV upload
+    const uploadBtn = document.getElementById('upload-btn');
+    const fileInput = document.getElementById('csv-file');
+    const resultEl = document.getElementById('import-result');
+    if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const form = new FormData();
+            form.append('file', file);
+            form.append('table', '{{ table }}');
+            form.append('lang', '{{ lang_code }}');
+            resultEl.textContent = 'Uploading...';
+            fetch('/data/import', { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.ok) {
+                        resultEl.textContent = '✓ Inserted ' + d.inserted + (d.skipped.length ? ', skipped ' + d.skipped.length + ': ' + d.skipped.join(', ') : '');
+                        resultEl.style.color = d.skipped.length ? '#d29922' : '#3fb950';
+                    } else {
+                        resultEl.textContent = '✗ ' + (d.error || 'failed');
+                        resultEl.style.color = '#f85149';
+                    }
+                })
+                .catch(e => { resultEl.textContent = '✗ ' + e.message; resultEl.style.color = '#f85149'; });
+        });
+    }
 })();
 </script>
 

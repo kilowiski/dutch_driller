@@ -453,10 +453,14 @@ def data_viewer():
     for row in rows:
         row["_pk"] = {k: row[k] for k in pk_cols}
 
+    csv_cols = CSV_COLUMNS.get(table, [])
+
     return render_template(
         "data.html",
         table=table,
         tables=list(DATA_TABLES.keys()),
+        csv_tables=list(CSV_COLUMNS.keys()),
+        csv_columns=csv_cols,
         columns=columns,
         pk_columns=pk_cols,
         rows=rows,
@@ -488,6 +492,92 @@ def data_update():
     except Exception as e:
         conn.close()
         return jsonify({"ok": False, "error": str(e)}), 400
+
+
+# ── CSV Import / Export ────────────────────────────────────────────────
+
+import csv, io as _io
+
+CSV_COLUMNS = {
+    "vocab_words":   ["word", "translation", "category", "cefr", "example"],
+    "phrases":       ["word", "translation", "scenario", "cefr"],
+    "verbs_ref":     ["infinitive", "translation", "type", "stem", "cefr", "example", "irregular"],
+    "sentences_ref": ["correct_order", "english", "cefr"],
+}
+
+
+@app.route("/data/export")
+def data_export():
+    """Download a CSV of a content table, or a header-only template."""
+    lang = request.args.get("lang", DEFAULT_LANG)
+    table = request.args.get("table", "vocab_words")
+
+    if table not in CSV_COLUMNS:
+        return "invalid table", 400
+
+    cols = CSV_COLUMNS[table]
+
+    conn = get_db()
+    rows = conn.execute(
+        f"SELECT {', '.join(cols)} FROM {table} WHERE lang = ?", (lang,)
+    ).fetchall()
+    conn.close()
+
+    buf = _io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(cols)
+    for r in rows:
+        w.writerow([r[c] for c in cols])
+
+    output = buf.getvalue()
+    buf.close()
+
+    resp = app.response_class(output, mimetype="text/csv")
+    resp.headers["Content-Disposition"] = f"attachment; filename={table}_{lang}.csv"
+    return resp
+
+
+@app.route("/data/import", methods=["POST"])
+def data_import():
+    """Upload a CSV to populate a content table."""
+    lang = request.form.get("lang", DEFAULT_LANG)
+    table = request.form.get("table", "vocab_words")
+    file = request.files.get("file")
+
+    if table not in CSV_COLUMNS:
+        return jsonify({"ok": False, "error": "invalid table"}), 400
+    if not file:
+        return jsonify({"ok": False, "error": "no file"}), 400
+
+    cols = CSV_COLUMNS[table]
+    reader = csv.DictReader(_io.StringIO(file.read().decode("utf-8-sig")))
+
+    inserted = 0
+    skipped = []
+    for row in reader:
+        try:
+            if table == "vocab_words":
+                insert_vocab(row["word"], row["translation"], row.get("category", ""),
+                             row.get("cefr", ""), row.get("example", ""), lang)
+            elif table == "phrases":
+                insert_phrase(row["word"], row["translation"], row.get("scenario", ""),
+                              row.get("cefr", ""), lang)
+            elif table == "verbs_ref":
+                import json
+                irr = row.get("irregular", "{}").strip()
+                irr = json.loads(irr) if irr else {}
+                insert_verb(row["infinitive"], row["translation"], row.get("type", "regular"),
+                            row.get("stem", ""), row.get("cefr", ""), row.get("example", ""), irr, lang)
+            elif table == "sentences_ref":
+                import json
+                corr = row.get("correct_order", "[]").strip()
+                corr = json.loads(corr) if corr else []
+                insert_sentence(corr, row["english"], row.get("cefr", ""), lang)
+            inserted += 1
+        except Exception:
+            skipped.append(row.get("word") or row.get("infinitive") or row.get("english", "?"))
+
+    return jsonify({"ok": True, "inserted": inserted, "skipped": skipped})
 
 
 # ── Content Generator ──────────────────────────────────────────────────
