@@ -1,0 +1,10 @@
+[project]
+name = "dutch-driller"
+version = "0.1.0"
+description = "A no-bullshit Dutch language training web app"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0",
+    "gunicorn>=21.2",
+]
