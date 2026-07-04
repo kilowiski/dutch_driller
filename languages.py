@@ -18,14 +18,12 @@ LANGUAGES = {
         "name": "Dutch",
         "native_name": "Nederlands",
         "flag": "🇳🇱",
-        "tts_lang": "nl-NL",
     },
     # "es": {
     #     "code": "es",
     #     "name": "Spanish",
     #     "native_name": "Español",
     #     "flag": "🇪🇸",
-    #     "tts_lang": "es-ES",
     # },
 }
 
