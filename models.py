@@ -77,8 +77,12 @@ def init_db():
     except Exception:
         pass  # column already exists
 
+    try: conn.execute("ALTER TABLE vocab_words ADD COLUMN audio_url TEXT NOT NULL DEFAULT ''")
+    except: pass
+
     conn.commit()
     conn.close()
+
 
 
 # ── Vocab helpers ──────────────────────────────────────────────────────

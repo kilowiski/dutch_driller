@@ -32,7 +32,7 @@
     {% for item in items %}
     <div class="drill-card" data-dutch="{{ item.dutch }}" data-english="{{ item.english }}"
          data-category="{{ item.category }}" data-direction="{{ direction }}"
-         data-example="{{ item.example }}" data-emoji="{{ item.emoji }}" data-cefr="{{ item.cefr }}">
+         data-example="{{ item.example }}" data-cefr="{{ item.cefr }}">
         <div class="prompt-label">
             {% if direction == 'nl_en' %}Dutch{% else %}English{% endif %}
         </div>
@@ -44,9 +44,6 @@
             <span class="category-tag">{{ item.category }}</span>
             {% if item.cefr %}
             <span class="cefr-badge cefr-{{ item.cefr|lower }}">{{ item.cefr }}</span>
-            {% endif %}
-            {% if item.emoji %}
-            <span class="emoji-hint" title="Hint">{{ item.emoji }}</span>
             {% endif %}
         </div>
         <input type="text" class="answer-input" placeholder="Type your answer..."
@@ -61,27 +58,13 @@
     <span id="score-text"></span>
     <a href="/vocab?direction={{ direction }}{% if selected_category %}&category={{ selected_category }}{% endif %}"
        class="btn">🔄 Again</a>
-    <div class="unlock-hint">Want more? <a href="/admin">Generate new content</a></div>
+    <div class="unlock-hint">Want more words? <a href="/admin">Generate new content</a></div>
 </div>
 
 <script>
 (function() {
-    // Voice removed
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('.speak-btn');
-        if (!btn) return;
-        const word = btn.dataset.word;
-        const utterance = new SpeechSynthesisUtterance(word);
-        utterance.lang = 'nl-NL';
-        utterance.rate = 0.85;
-        speechSynthesis.cancel();
-        speechSynthesis.speak(utterance);
-    });
-
     const cards = document.querySelectorAll('.drill-card');
-    let total = cards.length;
-    let done = 0;
-    let correct = 0;
+    let total = cards.length, done = 0, correct = 0;
 
     cards.forEach(card => {
         const input = card.querySelector('.answer-input');
@@ -90,101 +73,33 @@
         input.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && input.value.trim() && !card.classList.contains('done')) {
                 const answer = input.value.trim();
-
                 fetch('/vocab/check', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        answer: answer,
-                        dutch: card.dataset.dutch,
-                        english: card.dataset.english,
-                        category: card.dataset.category,
-                        cefr: card.dataset.cefr || '',
+                        answer, dutch: card.dataset.dutch, english: card.dataset.english,
+                        category: card.dataset.category, cefr: card.dataset.cefr || '',
                         direction: card.dataset.direction,
                     })
                 })
                 .then(r => r.json())
                 .then(data => {
                     done++;
-                    if (data.correct) {
-                        correct++;
-                        card.classList.add('correct');
-                        feedback.textContent = '✓ Correct!';
-                        feedback.className = 'feedback feedback-ok';
-                    } else {
-                        card.classList.add('wrong');
-                        feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>';
-                        feedback.className = 'feedback feedback-bad';
-
-                        // Reveal example sentence
+                    if (data.correct) { correct++; card.classList.add('correct'); feedback.textContent = '✓ Correct!'; feedback.className = 'feedback feedback-ok'; }
+                    else { card.classList.add('wrong'); feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>'; feedback.className = 'feedback feedback-bad';
                         const exampleEl = card.querySelector('.example-sentence');
-                        if (exampleEl) {
-                            exampleEl.classList.remove('hidden');
-                        }
-
-                        // Show "Explain" button if LLM is available
-                        if (data.llm_available) {
-                            const btn = document.createElement('button');
-                            btn.textContent = '🤖 Explain';
-                            btn.className = 'explain-btn';
-                            btn.onclick = function() {
-                                btn.disabled = true;
-                                btn.textContent = '...';
-                                fetch('/vocab/explain', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({
-                                        answer: answer,
-                                        dutch: card.dataset.dutch,
-                                        english: card.dataset.english,
-                                        expected: data.expected,
-                                    })
-                                })
-                                .then(r => r.json())
-                                .then(llm => {
-                                    const el = document.createElement('div');
-                                    el.className = 'llm-explanation';
-                                    el.textContent = llm.explanation;
-                                    if (llm.acceptable) {
-                                        el.classList.add('llm-acceptable');
-                                        card.classList.remove('wrong');
-                                        card.classList.add('correct');
-                                    }
-                                    feedback.appendChild(el);
-                                    btn.remove();
-                                })
-                                .catch(() => { btn.textContent = 'Failed'; });
-                            };
-                            feedback.appendChild(btn);
-                        }
-                    }
-                    card.classList.add('done');
-                    input.disabled = true;
-
-                    // Force feedback visible on mobile (no smooth — breaks on Brave Android)
+                        if (exampleEl) exampleEl.classList.remove('hidden');
+                        if (data.llm_available) { const btn = document.createElement('button'); btn.textContent = '🤖 Explain'; btn.className = 'explain-btn'; btn.onclick = function() { btn.disabled=true; btn.textContent='...'; fetch('/vocab/explain', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({answer, dutch:card.dataset.dutch, english:card.dataset.english, expected:data.expected}) }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';}); }; feedback.appendChild(btn); } }
+                    card.classList.add('done'); input.disabled = true;
                     feedback.scrollIntoView(false);
-
-                    // Auto-focus next after keyboard dismisses (~700ms)
                     const next = card.nextElementSibling;
-                    if (next && next.classList.contains('drill-card') && !next.classList.contains('done')) {
-                        setTimeout(() => {
-                            next.querySelector('.answer-input').focus();
-                            next.scrollIntoView(false);
-                        }, 700);
-                    }
-
-                    if (done === total) {
-                        document.getElementById('score-bar').classList.remove('hidden');
-                        document.getElementById('score-text').textContent =
-                            correct + ' / ' + total + ' correct (' +
-                            Math.round(100 * correct / total) + '%)';
-                    }
+                    if (next && next.classList.contains('drill-card') && !next.classList.contains('done'))
+                        setTimeout(() => { next.querySelector('.answer-input').focus(); next.scrollIntoView(false); }, 700);
+                    if (done === total) { document.getElementById('score-bar').classList.remove('hidden'); document.getElementById('score-text').textContent = correct + ' / ' + total + ' correct (' + Math.round(100 * correct / total) + '%)'; }
                 });
             }
         });
     });
-
-    // Focus first input
     if (cards.length) cards[0].querySelector('.answer-input').focus();
 })();
 </script>

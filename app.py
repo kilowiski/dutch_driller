@@ -3,7 +3,7 @@ Dutch Driller — a no-bullshit Dutch language training app.
 Flask + SQLite. All reference data in SQL tables.
 """
 
-import os, re, random, json
+import os, random, json
 from flask import Flask, render_template, request, jsonify, session
 
 from models import (
@@ -11,15 +11,18 @@ from models import (
     record_vocab, record_conjugate,
     vocab_overall, conjugate_overall,
     cefr_progress, conjugate_tense_stats, daily_streak,
-    llm_cache_lookup, llm_cache_store,
     get_vocab_words, get_vocab_categories, get_db,
     get_phrases, get_phrase_scenarios,
     get_sentences, get_sentence_levels,
-    get_verbs, PRONOUNS, TENSES, TENSE_LABEL,
-    conjugate_verb, check_conjugation,
     insert_vocab, insert_verb, insert_phrase, insert_sentence,
     get_table_counts,
 )
+
+from engines.dutch import DutchEngine
+from services.matching import matches
+from services.llm import explain, generate as llm_generate
+
+engine = DutchEngine()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dutch-driller-dev-key")
@@ -69,61 +72,6 @@ def _seed_if_empty():
     except Exception:
         pass  # .py seed files not available — DB may already have data
 _seed_if_empty()
-
-# ── LLM config ─────────────────────────────────────────────────────────
-
-DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
-DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
-
-# ── Lenient answer matching ────────────────────────────────────────────
-
-_ARTICLE_RE = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
-_HINT_RE = re.compile(r"\s*\([^)]*\)\s*$")
-_WS_RE = re.compile(r"\s+")
-
-def _normalize(text):
-    t = text.strip().lower()
-    t = _ARTICLE_RE.sub("", t)
-    t = _HINT_RE.sub("", t)
-    t = _WS_RE.sub(" ", t).strip().rstrip(",.!?;:")
-    return t
-
-def _matches(user_answer, expected):
-    u, e = _normalize(user_answer), _normalize(expected)
-    return u == e or (u and e and (u in e or e in u))
-
-def _llm_check(dutch, english, expected, user_answer):
-    if not DEEPSEEK_KEY:
-        return None
-    try:
-        import urllib.request
-        prompt = (
-            f'Dutch word: "{dutch}". Expected English translation: "{expected}". '
-            f'User answered: "{user_answer}". Is the user\'s answer an acceptable translation? '
-            f'Reply with exactly this JSON and nothing else: '
-            f'{{"acceptable": true or false, "explanation": "brief reason in one sentence"}}'
-        )
-        payload = json.dumps({
-            "model": "deepseek-chat",
-            "messages": [
-                {"role": "system", "content": "You are a strict Dutch-English language evaluator. Reply only with JSON."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0, "max_tokens": 150,
-        }).encode("utf-8")
-        req = urllib.request.Request(DEEPSEEK_URL, data=payload, headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
-        })
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            body = json.loads(resp.read())
-        content = body["choices"][0]["message"]["content"].strip()
-        if content.startswith("```"):
-            content = content.split("\n", 1)[-1].rsplit("\n", 1)[0]
-        return json.loads(content)
-    except Exception as e:
-        return {"acceptable": False, "explanation": f"(LLM unavailable: {e})"}
-
 
 # ── Home ───────────────────────────────────────────────────────────────
 
@@ -193,33 +141,19 @@ def vocab_check():
     direction = data.get("direction", "nl_en")
 
     expected = english if direction == "nl_en" else dutch
-    correct = _matches(user_answer, expected)
+    correct = matches(user_answer, expected)
     record_vocab(dutch, english, category, user_answer, correct, direction, cefr)
 
     return jsonify({
         "correct": correct, "expected": expected,
-        "llm_available": bool(DEEPSEEK_KEY and not correct),
+        "llm_available": not correct,
     })
-
-
-def _explain_with_cache(dutch, english, expected, user_answer):
-    cached = llm_cache_lookup(dutch, expected, user_answer)
-    if cached:
-        return cached
-    result = _llm_check(dutch, english, expected, user_answer)
-    if result:
-        llm_cache_store(dutch, expected, user_answer,
-                        result.get("acceptable", False),
-                        result.get("explanation", ""))
-    return result or {"acceptable": False, "explanation": "LLM check failed."}
 
 
 @app.route("/vocab/explain", methods=["POST"])
 def vocab_explain():
-    if not DEEPSEEK_KEY:
-        return jsonify({"acceptable": False, "explanation": "LLM not configured."})
     data = request.get_json()
-    return jsonify(_explain_with_cache(
+    return jsonify(explain(
         dutch=data.get("dutch", ""), english=data.get("english", ""),
         expected=data.get("expected", ""), user_answer=data.get("answer", ""),
     ))
@@ -260,19 +194,17 @@ def phrases_check():
     dutch = data.get("dutch", "")
     english = data.get("english", "")
     expected = english if data.get("direction") == "nl_en" else dutch
-    correct = _matches(user_answer, expected)
+    correct = matches(user_answer, expected)
     record_vocab(dutch, english, "phrases", user_answer, correct,
                  data.get("direction", "nl_en"), data.get("cefr", ""))
     return jsonify({"correct": correct, "expected": expected,
-                    "llm_available": bool(DEEPSEEK_KEY and not correct)})
+                    "llm_available": not correct})
 
 
 @app.route("/phrases/explain", methods=["POST"])
 def phrases_explain():
-    if not DEEPSEEK_KEY:
-        return jsonify({"acceptable": False, "explanation": "LLM not configured."})
     data = request.get_json()
-    return jsonify(_explain_with_cache(
+    return jsonify(explain(
         dutch=data.get("dutch", ""), english=data.get("english", ""),
         expected=data.get("expected", ""), user_answer=data.get("answer", ""),
     ))
@@ -311,27 +243,28 @@ def conjugate_drill():
     tense = request.args.get("tense", "present")
     count = int(request.args.get("count", 10))
 
-    pronouns = list(PRONOUNS.keys())
-    pool = get_verbs()
+    pronouns = list(engine.pronouns.keys())
+    pool = engine.get_verbs()
     random.shuffle(pool)
 
     drill_items = []
     for verb in pool[:count]:
         pronoun = random.choice(pronouns)
-        correct_form = conjugate_verb(verb, tense, pronoun)
+        correct_form = engine.conjugate(verb, tense, pronoun)
         drill_items.append({
             "infinitive": verb["infinitive"],
             "english": verb["english"],
             "tense": tense,
             "pronoun": pronoun,
-            "pronoun_label": PRONOUNS[pronoun],
+            "pronoun_label": engine.pronouns[pronoun],
             "correct_form": correct_form,
             "cefr": verb.get("cefr", ""),
             "example": verb.get("example", ""),
         })
 
     return render_template("conjugate.html", items=drill_items, tense=tense,
-                           tense_label=TENSE_LABEL.get(tense, tense), tenses=TENSES)
+                           tense_label=engine.tense_labels.get(tense, tense),
+                           tenses=engine.tenses)
 
 
 @app.route("/conjugate/check", methods=["POST"])
@@ -342,12 +275,12 @@ def conjugate_check():
     tense = data.get("tense", "present")
     pronoun = data.get("pronoun", "")
 
-    verbs = get_verbs()
+    verbs = engine.get_verbs()
     verb_entry = next((v for v in verbs if v["infinitive"] == infinitive), None)
     if not verb_entry:
         return jsonify({"correct": False, "expected": "?"})
 
-    is_correct, correct_form = check_conjugation(verb_entry, tense, pronoun, user_answer)
+    is_correct, correct_form = engine.check_answer(verb_entry, tense, pronoun, user_answer)
     record_conjugate(infinitive, tense, pronoun, user_answer, is_correct)
     return jsonify({"correct": is_correct, "expected": correct_form})
 
@@ -372,97 +305,45 @@ def admin_page():
 def generate_content():
     if not _check_admin():
         return jsonify({"error": "unauthorized"}), 401
-    if not DEEPSEEK_KEY:
-        return jsonify({"error": "DEEPSEEK_API_KEY not set"}), 400
 
     data = request.get_json()
-    content_type = data.get("type", "vocab")  # vocab, verb, phrase, sentence
+    content_type = data.get("type", "vocab")
     level = data.get("level", "A1")
     count = min(int(data.get("count", 5)), 10)
     category = data.get("category", "")
 
-    # Get existing content to avoid duplicates
-    import urllib.request
+    # Get existing items to avoid duplicates
     if content_type == "vocab":
-        existing = [w["dutch"] for w in get_vocab_words()]
-        prompt = (
-            f"Generate {count} new Dutch vocabulary words at CEFR level {level}."
-            + (f" Category theme: {category}." if category else "")
-            + f" Do NOT include any of these existing words: {', '.join(existing[:50])}."
-            + f" For each word provide: dutch (with article de/het), english, category (one word),"
-            + f" and example (a simple Dutch sentence using the word)."
-            + f" Reply ONLY with a JSON array of objects like: "
-            + f'[{{"dutch":"de hond","english":"the dog","category":"animals","example":"De hond speelt in de tuin."}}]'
-        )
+        get_existing = lambda: [w["dutch"] for w in get_vocab_words()]
     elif content_type == "verb":
-        existing = [v["infinitive"] for v in get_verbs()]
-        prompt = (
-            f"Generate {count} new Dutch verbs at CEFR level {level}."
-            + f" Do NOT include: {', '.join(existing)}."
-            + f" For each provide: infinitive, english, type (regular/irregular/modal), stem (infinitive minus -en),"
-            + f" example (simple Dutch sentence in present tense), and irregular forms (empty object for regular,"
-            + f" or e.g. for past: {{'past':{{'ik':'...','wij':'...'}}}} for irregular)."
-            + f" Reply ONLY with a JSON array: [{{'infinitive':'...','english':'...','type':'regular','stem':'...','example':'...','irregular':{{}}}}]"
-        )
+        get_existing = lambda: [v["infinitive"] for v in engine.get_verbs()]
     elif content_type == "phrase":
-        existing = [p["dutch"] for p in get_phrases()]
-        prompt = (
-            f"Generate {count} new Dutch survival phrases at level {level}."
-            + f" Do NOT include: {', '.join(existing)}."
-            + f" For each provide: dutch, english, scenario (one of: restaurant, shopping, travel, smalltalk, emergency, daily)."
-            + f" Reply ONLY with a JSON array: [{{'dutch':'...','english':'...','scenario':'...'}}]"
-        )
-    else:  # sentence
-        existing = [s["english"] for s in get_sentences()]
-        prompt = (
-            f"Generate {count} new Dutch sentence-ordering exercises at level {level}."
-            + f" Do NOT include English sentences like: {', '.join(existing[:30])}."
-            + f" For each provide: correct (array of words in correct Dutch order), english translation."
-            + f" Reply ONLY with a JSON array: [{{'correct':['Ik','ga','naar','huis'],'english':'I go home'}}]"
-        )
+        get_existing = lambda: [p["dutch"] for p in get_phrases()]
+    else:
+        get_existing = lambda: [s["english"] for s in get_sentences()]
 
-    try:
-        payload = json.dumps({
-            "model": "deepseek-chat",
-            "messages": [
-                {"role": "system", "content": "You are a Dutch language teacher. Reply ONLY with valid JSON arrays. No markdown, no explanation."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.7, "max_tokens": 2000,
-        }).encode("utf-8")
-        req = urllib.request.Request(DEEPSEEK_URL, data=payload, headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
-        })
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read())
-        content = body["choices"][0]["message"]["content"].strip()
-        if content.startswith("```"):
-            content = content.split("\n", 1)[-1].rsplit("```", 1)[0]
-        items = json.loads(content)
+    items, error = llm_generate(content_type, level, count, category, get_existing)
+    if error:
+        return jsonify({"error": error}), 400
 
-        inserted = 0
-        for item in items:
-            try:
-                if content_type == "vocab":
-                    insert_vocab(item["dutch"], item["english"], item.get("category", "general"),
-                                 level, item.get("example", ""))
-                elif content_type == "verb":
-                    insert_verb(item["infinitive"], item["english"], item.get("type", "regular"),
-                                item.get("stem", item["infinitive"][:-2]), level,
-                                item.get("example", ""), item.get("irregular", {}))
-                elif content_type == "phrase":
-                    insert_phrase(item["dutch"], item["english"],
-                                  item.get("scenario", "daily"), level)
-                else:
-                    insert_sentence(item["correct"], item["english"], level)
-                inserted += 1
-            except Exception:
-                pass
+    inserted = 0
+    for item in items:
+        try:
+            if content_type == "vocab":
+                insert_vocab(item["dutch"], item["english"], item.get("category", "general"), level, item.get("example", ""))
+            elif content_type == "verb":
+                insert_verb(item["infinitive"], item["english"], item.get("type", "regular"),
+                            item.get("stem", item["infinitive"][:-2]), level, item.get("example", ""), item.get("irregular", {}))
+            elif content_type == "phrase":
+                insert_phrase(item["dutch"], item["english"], item.get("scenario", "daily"), level)
+            else:
+                insert_sentence(item["correct"], item["english"], level)
+            inserted += 1
+        except Exception:
+            pass
 
-        return jsonify({"success": True, "generated": len(items), "inserted": inserted})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"success": True, "generated": len(items), "inserted": inserted})
+
 
 
 if __name__ == "__main__":
