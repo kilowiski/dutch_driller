@@ -200,6 +200,17 @@ def vocab_explain():
     ))
 
 
+@app.route("/vocab/correct", methods=["POST"])
+def vocab_correct():
+    """Override a wrong vocab answer: re-apply SRS as if correct."""
+    data = request.get_json()
+    word = data.get("word", "")
+    direction = data.get("direction", "forward")
+    lang = data.get("lang", DEFAULT_LANG)
+    update_vocab_srs(word, direction, lang, True)
+    return jsonify({"ok": True})
+
+
 # ── Phrases drill ──────────────────────────────────────────────────────
 
 @app.route("/phrases")
@@ -251,6 +262,17 @@ def phrases_explain():
         dutch=data.get("word", ""), english=data.get("translation", ""),
         expected=data.get("expected", ""), user_answer=data.get("answer", ""),
     ))
+
+
+@app.route("/phrases/correct", methods=["POST"])
+def phrases_correct():
+    """Override a wrong phrase answer: re-apply SRS as if correct."""
+    data = request.get_json()
+    word = data.get("word", "")
+    direction = data.get("direction", "forward")
+    lang = data.get("lang", DEFAULT_LANG)
+    update_vocab_srs(word, direction, lang, True)
+    return jsonify({"ok": True})
 
 
 # ── Sentence builder drill ─────────────────────────────────────────────
@@ -331,6 +353,18 @@ def conjugate_check():
     return jsonify({"correct": is_correct, "expected": correct_form})
 
 
+@app.route("/conjugate/correct", methods=["POST"])
+def conjugate_correct():
+    """Override a wrong answer: re-apply SRS as if correct."""
+    data = request.get_json()
+    infinitive = data.get("infinitive", "")
+    tense = data.get("tense", "present")
+    pronoun = data.get("pronoun", "")
+    lang = data.get("lang", DEFAULT_LANG)
+    update_conjugate_srs(infinitive, tense, pronoun, lang, True)
+    return jsonify({"ok": True})
+
+
 # ── SRS Stats ──────────────────────────────────────────────────────────
 
 @app.route("/stats")
@@ -341,6 +375,85 @@ def stats_page():
         vocab=srs_vocab_stats(lang),
         conjugate=srs_conjugate_stats(lang),
     )
+
+
+# ── Data Viewer ────────────────────────────────────────────────────────
+
+DATA_TABLES = {
+    "vocab_srs":         ("SELECT * FROM vocab_srs WHERE lang = ? ORDER BY next_review ASC",
+                          ["word", "direction", "lang"]),
+    "conjugate_srs":     ("SELECT * FROM conjugate_srs WHERE lang = ? ORDER BY next_review ASC",
+                          ["infinitive", "tense", "pronoun", "lang"]),
+    "vocab_words":       ("SELECT * FROM vocab_words WHERE lang = ? ORDER BY category, word",
+                          ["id"]),
+    "phrases":           ("SELECT * FROM phrases WHERE lang = ? ORDER BY scenario, word",
+                          ["id"]),
+    "verbs_ref":         ("SELECT * FROM verbs_ref WHERE lang = ? ORDER BY infinitive",
+                          ["id"]),
+    "sentences_ref":     ("SELECT * FROM sentences_ref WHERE lang = ? ORDER BY cefr",
+                          ["id"]),
+    "vocab_attempts":    ("SELECT * FROM vocab_attempts WHERE lang = ? ORDER BY created_at DESC LIMIT 100",
+                          ["id"]),
+    "conjugate_attempts":("SELECT * FROM conjugate_attempts WHERE lang = ? ORDER BY created_at DESC LIMIT 100",
+                          ["id"]),
+}
+
+
+@app.route("/data")
+def data_viewer():
+    lang = request.args.get("lang", DEFAULT_LANG)
+    table = request.args.get("table", "vocab_srs")
+
+    conn = get_db()
+    rows = []
+    columns = []
+    pk_cols = []
+    if table in DATA_TABLES:
+        sql, pk_cols = DATA_TABLES[table]
+        cur = conn.execute(sql, (lang,))
+        columns = [d[0] for d in cur.description]
+        rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+
+    # Attach PK dict to each row for the editor
+    for row in rows:
+        row["_pk"] = {k: row[k] for k in pk_cols}
+
+    return render_template(
+        "data.html",
+        table=table,
+        tables=list(DATA_TABLES.keys()),
+        columns=columns,
+        pk_columns=pk_cols,
+        rows=rows,
+    )
+
+
+@app.route("/data/update", methods=["POST"])
+def data_update():
+    """Update a single cell in a table."""
+    data = request.get_json()
+    table = data.get("table", "")
+    column = data.get("column", "")
+    value = data.get("value", "")
+    pk = data.get("pk", {})  # {"word": "hallo", "direction": "forward"}
+
+    if table not in DATA_TABLES:
+        return jsonify({"ok": False, "error": "invalid table"}), 400
+
+    # Build WHERE from PK
+    wheres = " AND ".join(f"{k} = ?" for k in pk)
+    params = [value] + list(pk.values())
+
+    conn = get_db()
+    try:
+        conn.execute(f"UPDATE {table} SET {column} = ? WHERE {wheres}", params)
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        conn.close()
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 # ── Admin + Content Generator ──────────────────────────────────────────

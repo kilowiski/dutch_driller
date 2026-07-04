@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Data Viewer{% endblock %}
+{% block content %}
+
+<h1>Data Viewer</h1>
+
+<div class="controls">
+    <div class="control-group">
+        <label>Table:</label>
+        {% for t in tables %}
+        <a href="/data?lang={{ lang_code }}&table={{ t }}"
+           class="btn {% if table == t %}active{% endif %}">{{ t }}</a>
+        {% endfor %}
+    </div>
+    <div class="control-group">
+        <a href="/data?lang={{ lang_code }}&table={{ table }}" class="btn refresh">🔄 Refresh</a>
+    </div>
+</div>
+
+{% if rows %}
+<div class="data-table-wrap">
+    <table class="data-table" id="data-table"
+           data-table="{{ table }}" data-pk-columns='{{ pk_columns | tojson }}'>
+        <thead>
+            <tr>
+                {% for col in columns %}
+                <th>{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr data-pk='{{ row._pk | tojson }}'>
+                {% for col in columns %}
+                <td data-col="{{ col }}">{{ row[col] if row[col] is not none else '' }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="data-footer" id="data-footer">{{ rows|length }} rows. Click a cell to edit.</div>
+{% else %}
+<p class="dim" style="margin-top:1rem">No data in {{ table }} for lang={{ lang_code }}.</p>
+{% endif %}
+
+<script>
+(function() {
+    const table = document.getElementById('data-table');
+    if (!table) return;
+
+    const tableName = table.dataset.table;
+    const pkCols = JSON.parse(table.dataset.pkColumns);
+    const footer = document.getElementById('data-footer');
+
+    table.addEventListener('click', function(e) {
+        const td = e.target.closest('td');
+        if (!td || td.querySelector('input')) return;
+
+        const col = td.dataset.col;
+        const tr = td.closest('tr');
+        const pk = JSON.parse(tr.dataset.pk);
+        const oldValue = td.textContent;
+
+        // Replace with input
+        const input = document.createElement('input');
+        input.value = oldValue;
+        td.textContent = '';
+        td.appendChild(input);
+        td.classList.add('editing');
+        input.focus();
+        input.select();
+
+        function save() {
+            const newValue = input.value;
+            td.classList.remove('editing');
+            input.remove();
+
+            if (newValue === oldValue) {
+                td.textContent = oldValue;
+                return;
+            }
+
+            fetch('/data/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    table: tableName,
+                    column: col,
+                    value: newValue,
+                    pk: pk,
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    td.textContent = newValue;
+                    td.classList.add('saved');
+                    setTimeout(() => td.classList.remove('saved'), 1200);
+                } else {
+                    td.textContent = oldValue;
+                    td.classList.add('error');
+                    setTimeout(() => td.classList.remove('error'), 1200);
+                    footer.textContent = 'Error: ' + (data.error || 'unknown');
+                }
+            })
+            .catch(() => {
+                td.textContent = oldValue;
+                td.classList.add('error');
+                setTimeout(() => td.classList.remove('error'), 1200);
+            });
+        }
+
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            if (e.key === 'Escape') { input.value = oldValue; input.blur(); }
+        });
+    });
+})();
+</script>
+
+{% endblock %}

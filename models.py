@@ -879,11 +879,12 @@ def srs_vocab_stats(lang="nl"):
     # Queue overview
     queue = conn.execute("""
         SELECT
-            COUNT(*) AS total_in_srs,
+            COUNT(DISTINCT word) AS total_in_srs,
             SUM(CASE WHEN next_review <= date('now') THEN 1 ELSE 0 END) AS due_now,
             SUM(CASE WHEN next_review <= date('now', '+7 days') THEN 1 ELSE 0 END) AS due_week
         FROM vocab_srs
         WHERE lang = ?
+          AND direction = 'forward'
     """, (lang,)).fetchone()
 
     # Mastery tiers
@@ -894,6 +895,7 @@ def srs_vocab_stats(lang="nl"):
             SUM(CASE WHEN reps >= 3 THEN 1 ELSE 0 END) AS mature
         FROM vocab_srs
         WHERE lang = ?
+          AND direction = 'forward'
     """, (lang,)).fetchone()
 
     # Interval distribution
@@ -906,13 +908,14 @@ def srs_vocab_stats(lang="nl"):
             SUM(CASE WHEN interval > 30 THEN 1 ELSE 0 END) AS i_30plus
         FROM vocab_srs
         WHERE lang = ?
+          AND direction = 'forward'
     """, (lang,)).fetchone()
 
     # Average EF
     avg_ef = conn.execute("""
         SELECT ROUND(AVG(ef), 2) AS avg_ef,
                ROUND(AVG(CASE WHEN reps >= 2 THEN ef END), 2) AS avg_ef_mature
-        FROM vocab_srs WHERE lang = ?
+        FROM vocab_srs WHERE lang = ? AND direction = 'forward'
     """, (lang,)).fetchone()
 
     # Per-category breakdown (join vocab_words for category)
@@ -925,6 +928,7 @@ def srs_vocab_stats(lang="nl"):
         FROM vocab_srs vs
         JOIN vocab_words vw ON vs.word = vw.word AND vs.lang = vw.lang
         WHERE vs.lang = ?
+          AND vs.direction = 'forward'
         GROUP BY vw.category
         ORDER BY due_now DESC, avg_ef ASC
     """, (lang,)).fetchall()
@@ -941,7 +945,7 @@ def srs_vocab_stats(lang="nl"):
         SELECT COUNT(*) AS unseen
         FROM vocab_words vw
         WHERE vw.lang = ?
-          AND NOT EXISTS (SELECT 1 FROM vocab_srs vs WHERE vs.word = vw.word AND vs.lang = vw.lang AND vs.direction = 'forward')
+          AND NOT EXISTS (SELECT 1 FROM vocab_srs vs WHERE vs.word = vw.word AND vs.lang = vw.lang)
     """, (lang,)).fetchone()
 
     conn.close()

@@ -102,6 +102,39 @@
                         card.classList.add('wrong');
                         feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>';
                         feedback.className = 'feedback feedback-bad';
+                        // Correction button
+                        const correctBtn = document.createElement('button');
+                        correctBtn.textContent = 'I was right';
+                        correctBtn.className = 'correct-btn';
+                        correctBtn.onclick = function() {
+                            correctBtn.disabled = true;
+                            correctBtn.textContent = '...';
+                            fetch('/conjugate/correct', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    infinitive: card.dataset.infinitive,
+                                    tense: card.dataset.tense,
+                                    pronoun: card.dataset.pronoun,
+                                    lang: card.dataset.lang,
+                                })
+                            })
+                            .then(() => {
+                                correct++;
+                                card.classList.remove('wrong');
+                                card.classList.add('correct');
+                                feedback.innerHTML = '✓ Correct! (overridden)';
+                                feedback.className = 'feedback feedback-ok';
+                                if (done === total) {
+                                    document.getElementById('score-text').textContent =
+                                        correct + ' / ' + total + ' correct (' +
+                                        Math.round(100 * correct / total) + '%)';
+                                }
+                            })
+                            .catch(() => { correctBtn.textContent = 'Failed'; });
+                        };
+                        feedback.appendChild(document.createTextNode(' '));
+                        feedback.appendChild(correctBtn);
                     }
                     card.classList.add('done');
                     input.disabled = true;

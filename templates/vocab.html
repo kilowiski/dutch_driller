@@ -94,11 +94,46 @@
                 .then(r => r.json())
                 .then(data => {
                     done++;
-                    if (data.correct) { correct++; card.classList.add('correct'); feedback.textContent = '✓ Correct!'; feedback.className = 'feedback feedback-ok'; }
-                    else { card.classList.add('wrong'); feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>'; feedback.className = 'feedback feedback-bad';
+                    if (data.correct) {
+                        correct++;
+                        card.classList.add('correct');
+                        feedback.textContent = '✓ Correct!';
+                        feedback.className = 'feedback feedback-ok';
+                    } else {
+                        card.classList.add('wrong');
+                        feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>';
+                        feedback.className = 'feedback feedback-bad';
                         const exampleEl = card.querySelector('.example-sentence');
                         if (exampleEl) exampleEl.classList.remove('hidden');
-                        if (data.llm_available) { const btn = document.createElement('button'); btn.textContent = '🤖 Explain'; btn.className = 'explain-btn'; btn.onclick = function() { btn.disabled=true; btn.textContent='...'; fetch('/vocab/explain', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({answer, word:card.dataset.word, translation:card.dataset.translation, expected:data.expected}) }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';}); }; feedback.appendChild(btn); } }
+                        if (data.llm_available) {
+                            const btn = document.createElement('button');
+                            btn.textContent = '🤖 Explain';
+                            btn.className = 'explain-btn';
+                            btn.onclick = function() {
+                                btn.disabled=true; btn.textContent='...';
+                                fetch('/vocab/explain', { method:'POST', headers:{'Content-Type':'application/json'},
+                                    body:JSON.stringify({answer, word:card.dataset.word, translation:card.dataset.translation, expected:data.expected})
+                                }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';});
+                            };
+                            feedback.appendChild(btn);
+                        }
+                        const correctBtn = document.createElement('button');
+                        correctBtn.textContent = 'I was right';
+                        correctBtn.className = 'correct-btn';
+                        correctBtn.onclick = function() {
+                            correctBtn.disabled = true; correctBtn.textContent = '...';
+                            fetch('/vocab/correct', { method:'POST', headers:{'Content-Type':'application/json'},
+                                body:JSON.stringify({word:card.dataset.word, direction:card.dataset.direction, lang:card.dataset.lang})
+                            }).then(() => {
+                                correct++;
+                                card.classList.remove('wrong'); card.classList.add('correct');
+                                feedback.innerHTML = '✓ Correct! (overridden)'; feedback.className = 'feedback feedback-ok';
+                                if (done === total) { document.getElementById('score-text').textContent = correct + ' / ' + total + ' correct (' + Math.round(100 * correct / total) + '%)'; }
+                            }).catch(() => { correctBtn.textContent = 'Failed'; });
+                        };
+                        feedback.appendChild(document.createTextNode(' '));
+                        feedback.appendChild(correctBtn);
+                    }
                     card.classList.add('done'); input.disabled = true;
                     feedback.scrollIntoView(false);
                     const next = card.nextElementSibling;

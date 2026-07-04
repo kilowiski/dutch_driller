@@ -607,3 +607,86 @@ h1 {
         font-size: 0.8rem;
     }
 }
+
+/* ── Data table ────────────────────────────────────────────────────── */
+
+.data-table-wrap {
+    overflow-x: auto;
+    margin-top: 16px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.data-table th {
+    position: sticky;
+    top: 0;
+    background: #161b22;
+    color: #8b949e;
+    text-align: left;
+    padding: 8px 10px;
+    font-weight: 600;
+    border-bottom: 1px solid #30363d;
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #21262d;
+    color: #c9d1d9;
+    white-space: nowrap;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.data-table tr:hover td { background: #1c2128; }
+.data-table td:active { background: #0d419d33; }
+
+.data-table td.editing {
+    padding: 0;
+    background: #0d419d22;
+}
+
+.data-table td input {
+    width: 100%;
+    background: #0d1117;
+    color: #c9d1d9;
+    border: 1px solid #58a6ff;
+    padding: 5px 9px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+}
+
+.data-table td.saved { background: #1b3a1b; }
+.data-table td.error  { background: #3a1b1b; }
+
+.data-footer {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    color: #484f58;
+}
+
+/* ── Correction button ─────────────────────────────────────────────── */
+
+.correct-btn {
+    background: none;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    margin-left: 6px;
+}
+.correct-btn:hover { color: #3fb950; border-color: #3fb950; }
+.correct-btn:disabled { opacity: 0.5; cursor: default; }
