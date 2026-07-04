@@ -39,4 +39,59 @@
     </a>
 </div>
 
+<!-- Dashboard -->
+{% if streak.total_days > 0 %}
+<div class="dashboard">
+    <h2>Your Progress</h2>
+
+    <!-- Streak -->
+    <div class="streak-bar">
+        <div class="streak-current">
+            <span class="streak-number">{{ streak.current }}</span>
+            <span class="streak-label">day streak</span>
+        </div>
+        <div class="streak-meta">
+            <span>Best: {{ streak.longest }} days</span>
+            <span>Total active days: {{ streak.total_days }}</span>
+        </div>
+    </div>
+
+    <!-- CEFR progress -->
+    {% if cefr_levels %}
+    <h3>CEFR Levels</h3>
+    <div class="cefr-grid">
+        {% for level in cefr_levels %}
+        <div class="cefr-bar">
+            <div class="cefr-bar-label">
+                <span class="cefr-badge cefr-{{ level.cefr|lower }}">{{ level.cefr }}</span>
+                <span class="cefr-count">{{ level.known }} words known</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill cefr-fill-{{ level.cefr|lower }}"
+                     style="width:{{ level.accuracy }}%"></div>
+            </div>
+            <div class="cefr-pct">{{ level.accuracy }}% · {{ level.total_seen }} words seen</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Conjugation by tense -->
+    {% if tense_stats %}
+    <h3>Conjugation Accuracy</h3>
+    <div class="tense-grid">
+        {% for t in tense_stats %}
+        <div class="tense-stat">
+            <span class="tense-name">{{ t.tense }}</span>
+            <span class="stat {% if t.pct >= 70 %}good{% elif t.pct >= 40 %}ok{% else %}bad{% endif %}">
+                {{ t.pct }}%
+            </span>
+            <span class="tense-count">{{ t.total }} attempts</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 {% endblock %}

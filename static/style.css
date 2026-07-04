@@ -423,6 +423,93 @@ h1 {
 
 .dim-text { color: #484f58; font-size: 0.85rem; }
 
+/* ── Dashboard ───────────────────────────────────────────────────── */
+.dashboard {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid #21262d;
+}
+.dashboard h2 {
+    font-size: 1.2rem;
+    color: #f0f6fc;
+    margin-bottom: 16px;
+}
+.dashboard h3 {
+    font-size: 0.95rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 20px 0 10px;
+}
+
+/* Streak */
+.streak-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 8px;
+}
+.streak-current { display: flex; align-items: baseline; gap: 8px; }
+.streak-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #f0f6fc;
+    line-height: 1;
+}
+.streak-label { color: #8b949e; font-size: 0.9rem; }
+.streak-meta { display: flex; gap: 16px; font-size: 0.8rem; color: #484f58; }
+
+/* CEFR progress bars */
+.cefr-grid { display: flex; flex-direction: column; gap: 10px; }
+.cefr-bar-label { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.cefr-count { font-size: 0.85rem; color: #c9d1d9; }
+.cefr-pct { font-size: 0.75rem; color: #484f58; margin-top: 2px; }
+.progress-track {
+    height: 6px;
+    background: #21262d;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+.cefr-fill-a1 { background: #3fb950; }
+.cefr-fill-a2 { background: #56d364; }
+.cefr-fill-b1 { background: #d29922; }
+.cefr-fill-b2 { background: #e3b341; }
+.cefr-fill-c1 { background: #f85149; }
+
+/* Tense stats */
+.tense-grid {
+    display: flex;
+    gap: 12px;
+}
+.tense-stat {
+    flex: 1;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+}
+.tense-name {
+    display: block;
+    font-size: 0.8rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.tense-count { display: block; font-size: 0.75rem; color: #484f58; margin-top: 4px; }
+.stat.good { color: #3fb950; }
+.stat.ok   { color: #d29922; }
+.stat.bad  { color: #f85149; }
+
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 600px) {
     .card-grid { grid-template-columns: 1fr; }

@@ -76,8 +76,17 @@
 
         function renderChips() {
             chipsEl.innerHTML = '';
-            buildEl.innerHTML = '';
-            shuffled.forEach((word, i) => {
+            const maxCount = {};
+            correctOrder.forEach(w => { maxCount[w] = (maxCount[w] || 0) + 1; });
+            const usedCount = {};
+            built.forEach(w => { usedCount[w] = (usedCount[w] || 0) + 1; });
+
+            shuffled.forEach(word => {
+                // Show chip if this word hasn't been used to its max yet
+                const used = usedCount[word] || 0;
+                const max = maxCount[word] || 0;
+                if (used >= max) return;
+
                 const chip = document.createElement('button');
                 chip.className = 'word-chip';
                 chip.textContent = word;
@@ -87,9 +96,7 @@
                     renderBuilt();
                     renderChips();
                 };
-                if (!built.includes(word) || built.filter(w => w === word).length > correctOrder.filter(w => w === word).length) {
-                    chipsEl.appendChild(chip);
-                }
+                chipsEl.appendChild(chip);
             });
             if (!chipsEl.children.length && !card.classList.contains('done')) {
                 chipsEl.innerHTML = '<span class="dim-text">All words used</span>';
