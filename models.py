@@ -233,7 +233,7 @@ def daily_streak():
         else:
             streak = 1
 
-        return {
+    return {
         "current": current,
         "longest": max(longest, current),
         "total_days": len(dates),
