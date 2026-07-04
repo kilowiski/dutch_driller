@@ -35,7 +35,7 @@ class DutchEngine(ConjugationEngine):
             return irr[tense][pronoun]
         stem = verb.get("stem", "")
         if tense == "present":
-            return self._present(stem, pronoun)
+            return self._present(stem, pronoun, verb["infinitive"])
         if tense == "past":
             return self._past(stem, pronoun)
         if tense == "perfect":
@@ -49,12 +49,12 @@ class DutchEngine(ConjugationEngine):
 
     # ── Dutch-specific rules ───────────────────────────────────────
 
-    def _present(self, stem, pronoun):
+    def _present(self, stem, pronoun, infinitive):
         if pronoun == "ik":
             return stem
         if pronoun in ("jij", "u", "hij", "zij", "het"):
             return stem + "t"
-        return stem  # plural
+        return infinitive  # plural = infinitive form
 
     def _past(self, stem, pronoun):
         soft_endings = set("tkfschp")  # 't kofschip
