@@ -21,8 +21,8 @@ class DutchEngine(ConjugationEngine):
         "perfect": "present perfect (voltooid tegenwoordige tijd)",
     }
 
-    def get_verbs(self):
-        return _db_get_verbs()
+    def get_verbs(self, lang="nl"):
+        return _db_get_verbs(lang)
 
     # ── Conjugation logic ──────────────────────────────────────────
 

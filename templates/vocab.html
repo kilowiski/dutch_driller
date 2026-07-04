@@ -7,38 +7,38 @@
 <div class="controls">
     <div class="control-group">
         <label>Direction:</label>
-        <a href="?direction=nl_en{% if selected_category %}&category={{ selected_category }}{% endif %}"
-           class="btn {% if direction == 'nl_en' %}active{% endif %}">🇳🇱 → 🇬🇧</a>
-        <a href="?direction=en_nl{% if selected_category %}&category={{ selected_category }}{% endif %}"
-           class="btn {% if direction == 'en_nl' %}active{% endif %}">🇬🇧 → 🇳🇱</a>
+        <a href="?lang={{ lang_code }}&direction=forward{% if selected_category %}&category={{ selected_category }}{% endif %}"
+           class="btn {% if direction == 'forward' %}active{% endif %}">{{ lang.flag }} → 🇬🇧</a>
+        <a href="?lang={{ lang_code }}&direction=reverse{% if selected_category %}&category={{ selected_category }}{% endif %}"
+           class="btn {% if direction == 'reverse' %}active{% endif %}">🇬🇧 → {{ lang.flag }}</a>
     </div>
 
     <div class="control-group">
         <label>Category:</label>
-        <a href="?direction={{ direction }}" class="btn {% if not selected_category %}active{% endif %}">All</a>
+        <a href="?lang={{ lang_code }}&direction={{ direction }}" class="btn {% if not selected_category %}active{% endif %}">All</a>
         {% for cat in categories %}
-        <a href="?direction={{ direction }}&category={{ cat }}"
+        <a href="?lang={{ lang_code }}&direction={{ direction }}&category={{ cat }}"
            class="btn {% if selected_category == cat %}active{% endif %}">{{ cat }}</a>
         {% endfor %}
     </div>
 
     <div class="control-group">
-        <a href="?direction={{ direction }}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+        <a href="?lang={{ lang_code }}&direction={{ direction }}{% if selected_category %}&category={{ selected_category }}{% endif %}"
            class="btn refresh">🔄 New Drill</a>
     </div>
 </div>
 
 <div id="drill-container">
     {% for item in items %}
-    <div class="drill-card" data-dutch="{{ item.dutch }}" data-english="{{ item.english }}"
+    <div class="drill-card" data-word="{{ item.word }}" data-translation="{{ item.translation }}"
          data-category="{{ item.category }}" data-direction="{{ direction }}"
-         data-example="{{ item.example }}" data-cefr="{{ item.cefr }}">
+         data-lang="{{ lang_code }}" data-example="{{ item.example }}" data-cefr="{{ item.cefr }}">
         <div class="prompt-label">
-            {% if direction == 'nl_en' %}Dutch{% else %}English{% endif %}
+            {% if direction == 'forward' %}{{ lang.name }}{% else %}English{% endif %}
         </div>
         <div class="prompt-word">
             {{ item.prompt }}
-
+            <button class="speak-btn" data-word="{{ item.word }}" title="Listen">🔊</button>
         </div>
         <div class="card-meta">
             <span class="category-tag">{{ item.category }}</span>
@@ -56,13 +56,22 @@
 
 <div id="score-bar" class="hidden">
     <span id="score-text"></span>
-    <a href="/vocab?direction={{ direction }}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+    <a href="/vocab?lang={{ lang_code }}&direction={{ direction }}{% if selected_category %}&category={{ selected_category }}{% endif %}"
        class="btn">🔄 Again</a>
     <div class="unlock-hint">Want more words? <a href="/admin">Generate new content</a></div>
 </div>
 
 <script>
 (function() {
+    // TTS
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.speak-btn');
+        if (!btn) return;
+        const u = new SpeechSynthesisUtterance(btn.dataset.word);
+        u.lang = '{{ lang.tts_lang }}'; u.rate = 0.85;
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+    });
+
     const cards = document.querySelectorAll('.drill-card');
     let total = cards.length, done = 0, correct = 0;
 
@@ -77,9 +86,9 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        answer, dutch: card.dataset.dutch, english: card.dataset.english,
+                        answer, word: card.dataset.word, translation: card.dataset.translation,
                         category: card.dataset.category, cefr: card.dataset.cefr || '',
-                        direction: card.dataset.direction,
+                        direction: card.dataset.direction, lang: card.dataset.lang,
                     })
                 })
                 .then(r => r.json())
@@ -89,7 +98,7 @@
                     else { card.classList.add('wrong'); feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>'; feedback.className = 'feedback feedback-bad';
                         const exampleEl = card.querySelector('.example-sentence');
                         if (exampleEl) exampleEl.classList.remove('hidden');
-                        if (data.llm_available) { const btn = document.createElement('button'); btn.textContent = '🤖 Explain'; btn.className = 'explain-btn'; btn.onclick = function() { btn.disabled=true; btn.textContent='...'; fetch('/vocab/explain', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({answer, dutch:card.dataset.dutch, english:card.dataset.english, expected:data.expected}) }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';}); }; feedback.appendChild(btn); } }
+                        if (data.llm_available) { const btn = document.createElement('button'); btn.textContent = '🤖 Explain'; btn.className = 'explain-btn'; btn.onclick = function() { btn.disabled=true; btn.textContent='...'; fetch('/vocab/explain', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({answer, word:card.dataset.word, translation:card.dataset.translation, expected:data.expected}) }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';}); }; feedback.appendChild(btn); } }
                     card.classList.add('done'); input.disabled = true;
                     feedback.scrollIntoView(false);
                     const next = card.nextElementSibling;

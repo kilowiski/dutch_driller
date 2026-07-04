@@ -7,37 +7,38 @@
 <div class="controls">
     <div class="control-group">
         <label>Direction:</label>
-        <a href="?direction=nl_en{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
-           class="btn {% if direction == 'nl_en' %}active{% endif %}">🇳🇱 → 🇬🇧</a>
-        <a href="?direction=en_nl{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
-           class="btn {% if direction == 'en_nl' %}active{% endif %}">🇬🇧 → 🇳🇱</a>
+        <a href="?lang={{ lang_code }}&direction=forward{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+           class="btn {% if direction == 'forward' %}active{% endif %}">{{ lang.flag }} → 🇬🇧</a>
+        <a href="?lang={{ lang_code }}&direction=reverse{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+           class="btn {% if direction == 'reverse' %}active{% endif %}">🇬🇧 → {{ lang.flag }}</a>
     </div>
 
     <div class="control-group">
         <label>Scenario:</label>
-        <a href="?direction={{ direction }}" class="btn {% if not selected_scenario %}active{% endif %}">All</a>
+        <a href="?lang={{ lang_code }}&direction={{ direction }}" class="btn {% if not selected_scenario %}active{% endif %}">All</a>
         {% for s in scenarios %}
-        <a href="?direction={{ direction }}&scenario={{ s }}"
+        <a href="?lang={{ lang_code }}&direction={{ direction }}&scenario={{ s }}"
            class="btn {% if selected_scenario == s %}active{% endif %}">{{ s }}</a>
         {% endfor %}
     </div>
 
     <div class="control-group">
-        <a href="?direction={{ direction }}{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+        <a href="?lang={{ lang_code }}&direction={{ direction }}{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
            class="btn refresh">🔄 New Drill</a>
     </div>
 </div>
 
 <div id="drill-container">
     {% for item in items %}
-    <div class="drill-card" data-dutch="{{ item.dutch }}" data-english="{{ item.english }}"
-         data-direction="{{ direction }}" data-cefr="{{ item.cefr }}">
+    <div class="drill-card" data-word="{{ item.word }}" data-translation="{{ item.translation }}"
+         data-direction="{{ direction }}" data-lang="{{ lang_code }}" data-cefr="{{ item.cefr }}">
         <div class="prompt-label">
-            {% if direction == 'nl_en' %}Dutch{% else %}English{% endif %}
+            {% if direction == 'forward' %}{{ lang.name }}{% else %}English{% endif %}
             <span class="scenario-tag">{{ item.scenario }}</span>
         </div>
         <div class="prompt-word">
             {{ item.prompt }}
+            <button class="speak-btn" data-word="{{ item.word }}" title="Listen">🔊</button>
         </div>
         <div class="card-meta">
             {% if item.cefr %}
@@ -53,7 +54,7 @@
 
 <div id="score-bar" class="hidden">
     <span id="score-text"></span>
-    <a href="/phrases?direction={{ direction }}{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
+    <a href="/phrases?lang={{ lang_code }}&direction={{ direction }}{% if selected_scenario %}&scenario={{ selected_scenario }}{% endif %}"
        class="btn">🔄 Again</a>
     <div class="unlock-hint">Want more? <a href="/admin">Generate new content</a></div>
 </div>
@@ -64,7 +65,7 @@
         const btn = e.target.closest('.speak-btn');
         if (!btn) return;
         const u = new SpeechSynthesisUtterance(btn.dataset.word);
-        u.lang = 'nl-NL'; u.rate = 0.85;
+        u.lang = '{{ lang.tts_lang }}'; u.rate = 0.85;
         speechSynthesis.cancel(); speechSynthesis.speak(u);
     });
 
@@ -82,8 +83,8 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        answer, dutch: card.dataset.dutch, english: card.dataset.english,
-                        direction: card.dataset.direction, cefr: card.dataset.cefr || '',
+                        answer, word: card.dataset.word, translation: card.dataset.translation,
+                        direction: card.dataset.direction, lang: card.dataset.lang, cefr: card.dataset.cefr || '',
                     })
                 })
                 .then(r => r.json())
@@ -91,8 +92,7 @@
                     done++;
                     if (data.correct) { correct++; card.classList.add('correct'); feedback.textContent = '✓ Correct!'; feedback.className = 'feedback feedback-ok'; }
                     else { card.classList.add('wrong'); feedback.innerHTML = '✗ <span class="expected">' + data.expected + '</span>'; feedback.className = 'feedback feedback-bad';
-                        if (data.llm_available) { const btn = document.createElement('button'); btn.textContent = '🤖 Explain'; btn.className = 'explain-btn'; btn.onclick = function() { btn.disabled=true; btn.textContent='...'; fetch('/phrases/explain', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({answer, dutch:card.dataset.dutch, english:card.dataset.english, expected:data.expected}) }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';}); }; feedback.appendChild(btn); }
-                    }
+                        if (data.llm_available) { const btn = document.createElement('button'); btn.textContent = '🤖 Explain'; btn.className = 'explain-btn'; btn.onclick = function() { btn.disabled=true; btn.textContent='...'; fetch('/phrases/explain', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({answer, word:card.dataset.word, translation:card.dataset.translation, expected:data.expected}) }).then(r=>r.json()).then(llm=>{const el=document.createElement('div');el.className='llm-explanation';el.textContent=llm.explanation;if(llm.acceptable){el.classList.add('llm-acceptable');card.classList.remove('wrong');card.classList.add('correct');} feedback.appendChild(el);btn.remove();}).catch(()=>{btn.textContent='Failed';}); }; feedback.appendChild(btn); } }
                     card.classList.add('done'); input.disabled = true;
                     feedback.scrollIntoView(false);
                     const next = card.nextElementSibling;

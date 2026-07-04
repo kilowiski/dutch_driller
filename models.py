@@ -1,7 +1,12 @@
 """
 SQLite models for the Dutch Driller app.
-Tracks attempt history per drill type so we can weight questions
-toward words/verbs the user struggles with.
+Tracks attempt history per drill type + spaced repetition state.
+
+Column naming convention (language-agnostic):
+  word        = the target-language word/phrase
+  translation = the English translation
+  direction   = 'forward' (word→translation) or 'reverse' (translation→word)
+  lang        = language code ('nl', 'es', etc.)
 """
 
 import sqlite3
@@ -20,19 +25,124 @@ def get_db():
     return conn
 
 
+# ── Schema + migration ──────────────────────────────────────────────────
+
+def _has_column(conn, table, column):
+    """Check if a column exists in a table."""
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(r[1] == column for r in rows)
+
+
+def _migrate_schema(conn):
+    """One-time migration: rename columns, add lang, fix direction values."""
+
+    # ── vocab_attempts ──────────────────────────────────────────────
+    if _has_column(conn, "vocab_attempts", "dutch") and not _has_column(conn, "vocab_attempts", "word"):
+        conn.execute("ALTER TABLE vocab_attempts RENAME COLUMN dutch TO word")
+    if _has_column(conn, "vocab_attempts", "english") and not _has_column(conn, "vocab_attempts", "translation"):
+        conn.execute("ALTER TABLE vocab_attempts RENAME COLUMN english TO translation")
+    if not _has_column(conn, "vocab_attempts", "lang"):
+        conn.execute("ALTER TABLE vocab_attempts ADD COLUMN lang TEXT NOT NULL DEFAULT 'nl'")
+    conn.execute("UPDATE vocab_attempts SET direction='forward' WHERE direction='nl_en'")
+    conn.execute("UPDATE vocab_attempts SET direction='reverse' WHERE direction='en_nl'")
+
+    # ── vocab_words ─────────────────────────────────────────────────
+    if _has_column(conn, "vocab_words", "dutch") and not _has_column(conn, "vocab_words", "word"):
+        conn.execute("ALTER TABLE vocab_words RENAME COLUMN dutch TO word")
+    if _has_column(conn, "vocab_words", "english") and not _has_column(conn, "vocab_words", "translation"):
+        conn.execute("ALTER TABLE vocab_words RENAME COLUMN english TO translation")
+    if not _has_column(conn, "vocab_words", "lang"):
+        conn.execute("ALTER TABLE vocab_words ADD COLUMN lang TEXT NOT NULL DEFAULT 'nl'")
+
+    # ── phrases ─────────────────────────────────────────────────────
+    if _has_column(conn, "phrases", "dutch") and not _has_column(conn, "phrases", "word"):
+        conn.execute("ALTER TABLE phrases RENAME COLUMN dutch TO word")
+    if _has_column(conn, "phrases", "english") and not _has_column(conn, "phrases", "translation"):
+        conn.execute("ALTER TABLE phrases RENAME COLUMN english TO translation")
+    if not _has_column(conn, "phrases", "lang"):
+        conn.execute("ALTER TABLE phrases ADD COLUMN lang TEXT NOT NULL DEFAULT 'nl'")
+
+    # ── verbs_ref ───────────────────────────────────────────────────
+    if _has_column(conn, "verbs_ref", "english") and not _has_column(conn, "verbs_ref", "translation"):
+        conn.execute("ALTER TABLE verbs_ref RENAME COLUMN english TO translation")
+    if not _has_column(conn, "verbs_ref", "lang"):
+        conn.execute("ALTER TABLE verbs_ref ADD COLUMN lang TEXT NOT NULL DEFAULT 'nl'")
+
+    # ── sentences_ref ───────────────────────────────────────────────
+    if not _has_column(conn, "sentences_ref", "lang"):
+        conn.execute("ALTER TABLE sentences_ref ADD COLUMN lang TEXT NOT NULL DEFAULT 'nl'")
+
+    # ── vocab_srs: rebuild with lang in PK ──────────────────────────
+    if not _has_column(conn, "vocab_srs", "lang"):
+        # Rebuild table with new schema
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS vocab_srs_new (
+                word        TEXT NOT NULL,
+                direction   TEXT NOT NULL,
+                lang        TEXT NOT NULL DEFAULT 'nl',
+                ef          REAL NOT NULL DEFAULT 2.5,
+                interval    INTEGER NOT NULL DEFAULT 1,
+                reps        INTEGER NOT NULL DEFAULT 0,
+                next_review TEXT NOT NULL DEFAULT (date('now')),
+                last_review TEXT,
+                PRIMARY KEY (word, direction, lang)
+            );
+        """)
+        has_old = _has_column(conn, "vocab_srs", "word") or _has_column(conn, "vocab_srs", "dutch")
+        if has_old:
+            src_col = "word" if _has_column(conn, "vocab_srs", "word") else "dutch"
+            conn.execute(f"""
+                INSERT OR IGNORE INTO vocab_srs_new (word, direction, lang, ef, interval, reps, next_review, last_review)
+                SELECT {src_col}, direction, 'nl', ef, interval, reps, next_review, last_review FROM vocab_srs
+            """)
+        conn.execute("DROP TABLE IF EXISTS vocab_srs")
+        conn.execute("ALTER TABLE vocab_srs_new RENAME TO vocab_srs")
+        conn.execute("UPDATE vocab_srs SET direction='forward' WHERE direction='nl_en'")
+        conn.execute("UPDATE vocab_srs SET direction='reverse' WHERE direction='en_nl'")
+
+    # ── conjugate_srs: add lang to PK ───────────────────────────────
+    if not _has_column(conn, "conjugate_srs", "lang"):
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS conjugate_srs_new (
+                infinitive  TEXT NOT NULL,
+                tense       TEXT NOT NULL,
+                pronoun     TEXT NOT NULL,
+                lang        TEXT NOT NULL DEFAULT 'nl',
+                ef          REAL NOT NULL DEFAULT 2.5,
+                interval    INTEGER NOT NULL DEFAULT 1,
+                reps        INTEGER NOT NULL DEFAULT 0,
+                next_review TEXT NOT NULL DEFAULT (date('now')),
+                last_review TEXT,
+                PRIMARY KEY (infinitive, tense, pronoun, lang)
+            );
+        """)
+        if _has_column(conn, "conjugate_srs", "infinitive"):
+            conn.execute("""
+                INSERT OR IGNORE INTO conjugate_srs_new (infinitive, tense, pronoun, lang, ef, interval, reps, next_review, last_review)
+                SELECT infinitive, tense, pronoun, 'nl', ef, interval, reps, next_review, last_review FROM conjugate_srs
+            """)
+        conn.execute("DROP TABLE IF EXISTS conjugate_srs")
+        conn.execute("ALTER TABLE conjugate_srs_new RENAME TO conjugate_srs")
+
+    # ── conjugate_attempts: add lang ────────────────────────────────
+    if not _has_column(conn, "conjugate_attempts", "lang"):
+        conn.execute("ALTER TABLE conjugate_attempts ADD COLUMN lang TEXT NOT NULL DEFAULT 'nl'")
+
+
 def init_db():
     """Create tables if they don't exist. Run migrations."""
     conn = get_db()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS vocab_attempts (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            dutch       TEXT NOT NULL,
-            english     TEXT NOT NULL,
+            word        TEXT NOT NULL,
+            translation TEXT NOT NULL,
             category    TEXT NOT NULL,
             cefr        TEXT NOT NULL DEFAULT '',
             user_answer TEXT NOT NULL,
-            correct     INTEGER NOT NULL,  -- 0 or 1
-            direction   TEXT NOT NULL,      -- 'nl_en' or 'en_nl'
+            correct     INTEGER NOT NULL,
+            direction   TEXT NOT NULL,
+            lang        TEXT NOT NULL DEFAULT 'nl',
             created_at  TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
@@ -43,72 +153,112 @@ def init_db():
             pronoun     TEXT NOT NULL,
             user_answer TEXT NOT NULL,
             correct     INTEGER NOT NULL,
+            lang        TEXT NOT NULL DEFAULT 'nl',
             created_at  TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        CREATE INDEX IF NOT EXISTS idx_vocab_word ON vocab_attempts(dutch, direction);
-        CREATE INDEX IF NOT EXISTS idx_vocab_correct ON vocab_attempts(dutch, correct);
+        CREATE INDEX IF NOT EXISTS idx_vocab_word ON vocab_attempts(word, direction, lang);
+        CREATE INDEX IF NOT EXISTS idx_vocab_correct ON vocab_attempts(word, correct);
         CREATE INDEX IF NOT EXISTS idx_verb_attempt ON conjugate_attempts(infinitive, tense, pronoun);
 
+        CREATE TABLE IF NOT EXISTS vocab_srs (
+            word        TEXT NOT NULL,
+            direction   TEXT NOT NULL,
+            lang        TEXT NOT NULL DEFAULT 'nl',
+            ef          REAL NOT NULL DEFAULT 2.5,
+            interval    INTEGER NOT NULL DEFAULT 1,
+            reps        INTEGER NOT NULL DEFAULT 0,
+            next_review TEXT NOT NULL DEFAULT (date('now')),
+            last_review TEXT,
+            PRIMARY KEY (word, direction, lang)
+        );
+
+        CREATE TABLE IF NOT EXISTS conjugate_srs (
+            infinitive  TEXT NOT NULL,
+            tense       TEXT NOT NULL,
+            pronoun     TEXT NOT NULL,
+            lang        TEXT NOT NULL DEFAULT 'nl',
+            ef          REAL NOT NULL DEFAULT 2.5,
+            interval    INTEGER NOT NULL DEFAULT 1,
+            reps        INTEGER NOT NULL DEFAULT 0,
+            next_review TEXT NOT NULL DEFAULT (date('now')),
+            last_review TEXT,
+            PRIMARY KEY (infinitive, tense, pronoun, lang)
+        );
+        CREATE INDEX IF NOT EXISTS idx_conjugate_srs_tense ON conjugate_srs(tense, next_review);
+
         CREATE TABLE IF NOT EXISTS vocab_words (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, dutch TEXT NOT NULL UNIQUE,
-            english TEXT NOT NULL, category TEXT NOT NULL,
-            cefr TEXT NOT NULL DEFAULT '', example TEXT NOT NULL DEFAULT ''
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL,
+            translation TEXT NOT NULL,
+            category TEXT NOT NULL,
+            lang TEXT NOT NULL DEFAULT 'nl',
+            cefr TEXT NOT NULL DEFAULT '',
+            example TEXT NOT NULL DEFAULT '',
+            audio_url TEXT NOT NULL DEFAULT ''
         );
+
         CREATE TABLE IF NOT EXISTS phrases (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, dutch TEXT NOT NULL UNIQUE,
-            english TEXT NOT NULL, scenario TEXT NOT NULL, cefr TEXT NOT NULL DEFAULT ''
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL,
+            translation TEXT NOT NULL,
+            scenario TEXT NOT NULL,
+            lang TEXT NOT NULL DEFAULT 'nl',
+            cefr TEXT NOT NULL DEFAULT ''
         );
+
         CREATE TABLE IF NOT EXISTS sentences_ref (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            correct_order TEXT NOT NULL, english TEXT NOT NULL, cefr TEXT NOT NULL DEFAULT ''
+            correct_order TEXT NOT NULL,
+            english TEXT NOT NULL,
+            lang TEXT NOT NULL DEFAULT 'nl',
+            cefr TEXT NOT NULL DEFAULT ''
         );
+
         CREATE TABLE IF NOT EXISTS verbs_ref (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, infinitive TEXT NOT NULL UNIQUE,
-            english TEXT NOT NULL, type TEXT NOT NULL,
-            stem TEXT NOT NULL DEFAULT '', cefr TEXT NOT NULL DEFAULT '',
-            example TEXT NOT NULL DEFAULT '', irregular TEXT NOT NULL DEFAULT '{}'
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            infinitive TEXT NOT NULL UNIQUE,
+            translation TEXT NOT NULL,
+            type TEXT NOT NULL,
+            stem TEXT NOT NULL DEFAULT '',
+            lang TEXT NOT NULL DEFAULT 'nl',
+            cefr TEXT NOT NULL DEFAULT '',
+            example TEXT NOT NULL DEFAULT '',
+            irregular TEXT NOT NULL DEFAULT '{}'
         );
     """)
 
-    # Migration: add cefr column to existing databases
-    try:
-        conn.execute("ALTER TABLE vocab_attempts ADD COLUMN cefr TEXT NOT NULL DEFAULT ''")
-    except Exception:
-        pass  # column already exists
-
-    try: conn.execute("ALTER TABLE vocab_words ADD COLUMN audio_url TEXT NOT NULL DEFAULT ''")
-    except: pass
+    # Run migrations for existing databases
+    _migrate_schema(conn)
 
     conn.commit()
     conn.close()
 
 
-
 # ── Vocab helpers ──────────────────────────────────────────────────────
 
-def record_vocab(dutch, english, category, user_answer, correct, direction, cefr=""):
+def record_vocab(word, translation, category, user_answer, correct, direction, lang="nl", cefr=""):
     conn = get_db()
     conn.execute(
-        "INSERT INTO vocab_attempts (dutch, english, category, cefr, user_answer, correct, direction) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (dutch, english, category, cefr, user_answer, int(correct), direction),
+        "INSERT INTO vocab_attempts (word, translation, category, cefr, user_answer, correct, direction, lang) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (word, translation, category, cefr, user_answer, int(correct), direction, lang),
     )
     conn.commit()
     conn.close()
 
 
-def vocab_stats(direction="nl_en"):
+def vocab_stats(direction="forward"):
     """Return per-word stats: total attempts, correct count, accuracy %."""
     conn = get_db()
     rows = conn.execute("""
-        SELECT dutch, english, category,
+        SELECT word, translation, category,
                COUNT(*) AS total,
                SUM(correct) AS correct_count,
                ROUND(100.0 * SUM(correct) / COUNT(*), 1) AS pct
           FROM vocab_attempts
          WHERE direction = ?
-         GROUP BY dutch, english, category
+         GROUP BY word, translation, category
          ORDER BY pct ASC, total DESC
     """, (direction,)).fetchall()
     conn.close()
@@ -129,12 +279,12 @@ def vocab_overall():
 
 # ── Conjugation helpers ─────────────────────────────────────────────────
 
-def record_conjugate(infinitive, tense, pronoun, user_answer, correct):
+def record_conjugate(infinitive, tense, pronoun, user_answer, correct, lang="nl"):
     conn = get_db()
     conn.execute(
-        "INSERT INTO conjugate_attempts (infinitive, tense, pronoun, user_answer, correct) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (infinitive, tense, pronoun, user_answer, int(correct)),
+        "INSERT INTO conjugate_attempts (infinitive, tense, pronoun, user_answer, correct, lang) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (infinitive, tense, pronoun, user_answer, int(correct), lang),
     )
     conn.commit()
     conn.close()
@@ -174,7 +324,7 @@ def cefr_progress():
     conn = get_db()
     rows = conn.execute("""
         SELECT cefr,
-               COUNT(DISTINCT dutch) AS total_seen,
+               COUNT(DISTINCT word) AS total_seen,
                SUM(CASE WHEN correct THEN 1 ELSE 0 END) AS correct_count,
                COUNT(*) AS attempts
           FROM vocab_attempts
@@ -186,15 +336,14 @@ def cefr_progress():
     results = []
     for r in rows:
         d = dict(r)
-        # Count distinct words seen, and how many have >= 50% accuracy
         conn2 = get_db()
         word_stats = conn2.execute("""
-            SELECT dutch,
+            SELECT word,
                    SUM(correct) AS w_correct,
                    COUNT(*) AS w_total
               FROM vocab_attempts
              WHERE cefr = ?
-             GROUP BY dutch
+             GROUP BY word
         """, (d["cefr"],)).fetchall()
         conn2.close()
         known = sum(1 for w in word_stats if w["w_correct"] > 0 and (w["w_correct"] * 1.0 / w["w_total"]) >= 0.5)
@@ -240,14 +389,12 @@ def daily_streak():
     today = date.today()
     dates = [date.fromisoformat(r["d"]) for r in rows]
 
-    # Current streak: count consecutive days from today backwards
     current = 0
     check = today
     while check in dates:
         current += 1
         check -= timedelta(days=1)
 
-    # Longest streak
     longest = 1
     streak = 1
     for i in range(1, len(dates)):
@@ -264,24 +411,34 @@ def daily_streak():
     }
 
 
-# ── Reference data tables + seed (vocab/phrases/sentences) ─────────────
+# ── Reference data access ──────────────────────────────────────────────
 
 def _ensure_ref_tables():
     conn = get_db()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS vocab_words (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, dutch TEXT NOT NULL UNIQUE,
-            english TEXT NOT NULL, category TEXT NOT NULL,
-            cefr TEXT NOT NULL DEFAULT '', example TEXT NOT NULL DEFAULT ''
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL,
+            translation TEXT NOT NULL,
+            category TEXT NOT NULL,
+            lang TEXT NOT NULL DEFAULT 'nl',
+            cefr TEXT NOT NULL DEFAULT '',
+            example TEXT NOT NULL DEFAULT '',
+            audio_url TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS phrases (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, dutch TEXT NOT NULL UNIQUE,
-            english TEXT NOT NULL, scenario TEXT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL,
+            translation TEXT NOT NULL,
+            scenario TEXT NOT NULL,
+            lang TEXT NOT NULL DEFAULT 'nl',
             cefr TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS sentences_ref (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            correct_order TEXT NOT NULL, english TEXT NOT NULL,
+            correct_order TEXT NOT NULL,
+            english TEXT NOT NULL,
+            lang TEXT NOT NULL DEFAULT 'nl',
             cefr TEXT NOT NULL DEFAULT ''
         );
     """)
@@ -289,81 +446,140 @@ def _ensure_ref_tables():
     conn.close()
 
 
-def get_vocab_words(category=None):
+def get_vocab_words(category=None, lang="nl"):
     conn = get_db(); _ensure_ref_tables()
-    rows = conn.execute("SELECT * FROM vocab_words" + (" WHERE category=?" if category else ""),
-                        (category,) if category else ()).fetchall()
-    conn.close(); return [dict(r) for r in rows]
+    if category:
+        rows = conn.execute(
+            "SELECT id, word, translation, category, lang, cefr, example, audio_url FROM vocab_words WHERE category=? AND lang=?",
+            (category, lang),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id, word, translation, category, lang, cefr, example, audio_url FROM vocab_words WHERE lang=?",
+            (lang,),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
-def get_vocab_categories():
+
+def get_vocab_categories(lang="nl"):
     conn = get_db()
-    rows = conn.execute("SELECT DISTINCT category FROM vocab_words ORDER BY category").fetchall()
-    conn.close(); return [r["category"] for r in rows]
+    rows = conn.execute(
+        "SELECT DISTINCT category FROM vocab_words WHERE lang=? ORDER BY category",
+        (lang,),
+    ).fetchall()
+    conn.close()
+    return [r["category"] for r in rows]
 
-def get_phrases(scenario=None):
+
+def get_phrases(scenario=None, lang="nl"):
     conn = get_db(); _ensure_ref_tables()
-    rows = conn.execute("SELECT * FROM phrases" + (" WHERE scenario=?" if scenario else ""),
-                        (scenario,) if scenario else ()).fetchall()
-    conn.close(); return [dict(r) for r in rows]
+    if scenario:
+        rows = conn.execute(
+            "SELECT id, word, translation, scenario, lang, cefr FROM phrases WHERE scenario=? AND lang=?",
+            (scenario, lang),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id, word, translation, scenario, lang, cefr FROM phrases WHERE lang=?",
+            (lang,),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
-def get_phrase_scenarios():
+
+def get_phrase_scenarios(lang="nl"):
     conn = get_db()
-    rows = conn.execute("SELECT DISTINCT scenario FROM phrases ORDER BY scenario").fetchall()
-    conn.close(); return [r["scenario"] for r in rows]
+    rows = conn.execute(
+        "SELECT DISTINCT scenario FROM phrases WHERE lang=? ORDER BY scenario",
+        (lang,),
+    ).fetchall()
+    conn.close()
+    return [r["scenario"] for r in rows]
 
-def get_sentences(level=None):
+
+def get_sentences(level=None, lang="nl"):
     conn = get_db(); _ensure_ref_tables()
-    rows = conn.execute("SELECT * FROM sentences_ref" + (" WHERE cefr=?" if level else ""),
-                        (level,) if level else ()).fetchall()
+    if level:
+        rows = conn.execute(
+            "SELECT id, correct_order, english, lang, cefr FROM sentences_ref WHERE cefr=? AND lang=?",
+            (level, lang),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id, correct_order, english, lang, cefr FROM sentences_ref WHERE lang=?",
+            (lang,),
+        ).fetchall()
     conn.close()
     import json
     return [{**dict(r), "correct_order": json.loads(r["correct_order"])} for r in rows]
 
-def get_sentence_levels():
+
+def get_sentence_levels(lang="nl"):
     conn = get_db()
-    rows = conn.execute("SELECT DISTINCT cefr FROM sentences_ref ORDER BY cefr").fetchall()
-    conn.close(); return [r["cefr"] for r in rows]
+    rows = conn.execute(
+        "SELECT DISTINCT cefr FROM sentences_ref WHERE lang=? ORDER BY cefr",
+        (lang,),
+    ).fetchall()
+    conn.close()
+    return [r["cefr"] for r in rows]
 
 
-# ── Content insert helpers (for runtime additions) ────────────────────
+# ── Content insert helpers ─────────────────────────────────────────────
 
-def insert_vocab(dutch, english, category, cefr, example):
+def insert_vocab(word, translation, category, cefr, example, lang="nl"):
     conn = get_db(); _ensure_ref_tables()
     try:
-        conn.execute("INSERT INTO vocab_words (dutch, english, category, cefr, example) VALUES (?,?,?,?,?)",
-                     (dutch, english, category, cefr, example))
+        conn.execute(
+            "INSERT INTO vocab_words (word, translation, category, lang, cefr, example) VALUES (?,?,?,?,?,?)",
+            (word, translation, category, lang, cefr, example),
+        )
         conn.commit()
-    except: pass  # skip duplicates
+    except Exception:
+        pass
     conn.close()
 
-def insert_verb(infinitive, english, vtype, stem, cefr, example, irregular):
+
+def insert_verb(infinitive, translation, vtype, stem, cefr, example, irregular, lang="nl"):
     conn = get_db(); _ensure_verbs_table()
     import json
     try:
-        conn.execute("INSERT INTO verbs_ref (infinitive, english, type, stem, cefr, example, irregular) VALUES (?,?,?,?,?,?,?)",
-                     (infinitive, english, vtype, stem, cefr, example, json.dumps(irregular or {})))
+        conn.execute(
+            "INSERT INTO verbs_ref (infinitive, translation, type, stem, lang, cefr, example, irregular) VALUES (?,?,?,?,?,?,?,?)",
+            (infinitive, translation, vtype, stem, lang, cefr, example, json.dumps(irregular or {})),
+        )
         conn.commit()
-    except: pass
+    except Exception:
+        pass
     conn.close()
 
-def insert_phrase(dutch, english, scenario, cefr):
+
+def insert_phrase(word, translation, scenario, cefr, lang="nl"):
     conn = get_db(); _ensure_ref_tables()
     try:
-        conn.execute("INSERT INTO phrases (dutch, english, scenario, cefr) VALUES (?,?,?,?)",
-                     (dutch, english, scenario, cefr))
+        conn.execute(
+            "INSERT INTO phrases (word, translation, scenario, lang, cefr) VALUES (?,?,?,?,?)",
+            (word, translation, scenario, lang, cefr),
+        )
         conn.commit()
-    except: pass
+    except Exception:
+        pass
     conn.close()
 
-def insert_sentence(correct_order, english, cefr):
+
+def insert_sentence(correct_order, english, cefr, lang="nl"):
     conn = get_db(); _ensure_ref_tables()
     import json
     try:
-        conn.execute("INSERT INTO sentences_ref (correct_order, english, cefr) VALUES (?,?,?)",
-                     (json.dumps(correct_order), english, cefr))
+        conn.execute(
+            "INSERT INTO sentences_ref (correct_order, english, lang, cefr) VALUES (?,?,?,?)",
+            (json.dumps(correct_order), english, lang, cefr),
+        )
         conn.commit()
-    except: pass
+    except Exception:
+        pass
     conn.close()
+
 
 def get_table_counts():
     conn = get_db()
@@ -375,7 +591,7 @@ def get_table_counts():
     }
 
 
-# ── Verb reference data + conjugation engine ───────────────────────────
+# ── Verb reference data ────────────────────────────────────────────────
 
 def _ensure_verbs_table():
     conn = get_db()
@@ -383,9 +599,10 @@ def _ensure_verbs_table():
         CREATE TABLE IF NOT EXISTS verbs_ref (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             infinitive TEXT NOT NULL UNIQUE,
-            english    TEXT NOT NULL,
+            translation TEXT NOT NULL,
             type       TEXT NOT NULL,
             stem       TEXT NOT NULL DEFAULT '',
+            lang       TEXT NOT NULL DEFAULT 'nl',
             cefr       TEXT NOT NULL DEFAULT '',
             example    TEXT NOT NULL DEFAULT '',
             irregular  TEXT NOT NULL DEFAULT '{}'
@@ -395,11 +612,14 @@ def _ensure_verbs_table():
     conn.close()
 
 
-def get_verbs():
+def get_verbs(lang="nl"):
     conn = get_db()
     _ensure_verbs_table()
     import json
-    rows = conn.execute("SELECT * FROM verbs_ref").fetchall()
+    rows = conn.execute(
+        "SELECT id, infinitive, translation, type, stem, lang, cefr, example, irregular FROM verbs_ref WHERE lang=?",
+        (lang,),
+    ).fetchall()
     conn.close()
     return [{**dict(r), "irregular": json.loads(r["irregular"])} for r in rows]
 
@@ -461,7 +681,6 @@ def _ensure_llm_cache_table():
 
 
 def llm_cache_lookup(dutch, expected, user_answer):
-    """Return cached result or None."""
     _ensure_llm_cache_table()
     conn = get_db()
     row = conn.execute(
@@ -475,7 +694,6 @@ def llm_cache_lookup(dutch, expected, user_answer):
 
 
 def llm_cache_store(dutch, expected, user_answer, acceptable, explanation):
-    """Store LLM result, skip if dupe."""
     _ensure_llm_cache_table()
     conn = get_db()
     try:
@@ -485,5 +703,174 @@ def llm_cache_store(dutch, expected, user_answer, acceptable, explanation):
         )
         conn.commit()
     except Exception:
-        pass  # ignore duplicates
+        pass
     conn.close()
+
+
+# ── Spaced Repetition (SM-2 Lite) ───────────────────────────────────────
+
+from srs import update as _srs_update
+
+
+def _upsert_vocab_srs(word, direction, lang, correct):
+    """Update or create an SRS row for one vocab/phrase item after an answer."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT ef, interval, reps FROM vocab_srs WHERE word = ? AND direction = ? AND lang = ?",
+        (word, direction, lang),
+    ).fetchone()
+
+    if row:
+        ef, interval, reps = row["ef"], row["interval"], row["reps"]
+    else:
+        ef, interval, reps = 2.5, 1, 0
+
+    new_ef, new_interval, new_reps, next_review = _srs_update(ef, interval, reps, correct)
+
+    conn.execute("""
+        INSERT INTO vocab_srs (word, direction, lang, ef, interval, reps, next_review, last_review)
+        VALUES (?, ?, ?, ?, ?, ?, ?, date('now'))
+        ON CONFLICT(word, direction, lang) DO UPDATE SET
+            ef = excluded.ef, interval = excluded.interval, reps = excluded.reps,
+            next_review = excluded.next_review, last_review = excluded.last_review
+    """, (word, direction, lang, new_ef, new_interval, new_reps, next_review))
+    conn.commit()
+    conn.close()
+
+
+def _upsert_conjugate_srs(infinitive, tense, pronoun, lang, correct):
+    """Update or create an SRS row for one conjugation item after an answer."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT ef, interval, reps FROM conjugate_srs WHERE infinitive = ? AND tense = ? AND pronoun = ? AND lang = ?",
+        (infinitive, tense, pronoun, lang),
+    ).fetchone()
+
+    if row:
+        ef, interval, reps = row["ef"], row["interval"], row["reps"]
+    else:
+        ef, interval, reps = 2.5, 1, 0
+
+    new_ef, new_interval, new_reps, next_review = _srs_update(ef, interval, reps, correct)
+
+    conn.execute("""
+        INSERT INTO conjugate_srs (infinitive, tense, pronoun, lang, ef, interval, reps, next_review, last_review)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, date('now'))
+        ON CONFLICT(infinitive, tense, pronoun, lang) DO UPDATE SET
+            ef = excluded.ef, interval = excluded.interval, reps = excluded.reps,
+            next_review = excluded.next_review, last_review = excluded.last_review
+    """, (infinitive, tense, pronoun, lang, new_ef, new_interval, new_reps, next_review))
+    conn.commit()
+    conn.close()
+
+
+def get_due_vocab(direction, lang, category=None, limit=10):
+    """
+    Return vocab items prioritized by SRS due-ness.
+    Due items (next_review <= today or never reviewed) come first,
+    followed by not-yet-due items sorted by soonest review.
+    """
+    conn = get_db()
+    if category:
+        rows = conn.execute("""
+            SELECT vw.word, vw.translation, vw.category, vw.cefr, vw.example, vw.lang
+            FROM vocab_words vw
+            LEFT JOIN vocab_srs vs ON vw.word = vs.word AND vs.direction = ? AND vs.lang = ?
+            WHERE vw.lang = ? AND vw.category = ?
+            ORDER BY
+                CASE WHEN vs.next_review IS NULL OR vs.next_review <= date('now') THEN 0 ELSE 1 END,
+                vs.next_review ASC
+            LIMIT ?
+        """, (direction, lang, lang, category, limit)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT vw.word, vw.translation, vw.category, vw.cefr, vw.example, vw.lang
+            FROM vocab_words vw
+            LEFT JOIN vocab_srs vs ON vw.word = vs.word AND vs.direction = ? AND vs.lang = ?
+            WHERE vw.lang = ?
+            ORDER BY
+                CASE WHEN vs.next_review IS NULL OR vs.next_review <= date('now') THEN 0 ELSE 1 END,
+                vs.next_review ASC
+            LIMIT ?
+        """, (direction, lang, lang, limit)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_due_phrases(direction, lang, scenario=None, limit=10):
+    """Return phrase items prioritized by SRS due-ness."""
+    conn = get_db()
+    if scenario:
+        rows = conn.execute("""
+            SELECT p.word, p.translation, p.scenario, p.cefr, p.lang
+            FROM phrases p
+            LEFT JOIN vocab_srs vs ON p.word = vs.word AND vs.direction = ? AND vs.lang = ?
+            WHERE p.lang = ? AND p.scenario = ?
+            ORDER BY
+                CASE WHEN vs.next_review IS NULL OR vs.next_review <= date('now') THEN 0 ELSE 1 END,
+                vs.next_review ASC
+            LIMIT ?
+        """, (direction, lang, lang, scenario, limit)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT p.word, p.translation, p.scenario, p.cefr, p.lang
+            FROM phrases p
+            LEFT JOIN vocab_srs vs ON p.word = vs.word AND vs.direction = ? AND vs.lang = ?
+            WHERE p.lang = ?
+            ORDER BY
+                CASE WHEN vs.next_review IS NULL OR vs.next_review <= date('now') THEN 0 ELSE 1 END,
+                vs.next_review ASC
+            LIMIT ?
+        """, (direction, lang, lang, limit)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_due_conjugations(tense, lang, limit=10):
+    """
+    Return verb+pronoun combos prioritized by SRS due-ness.
+    Due items come first; remaining slots filled with random unseen combos.
+    """
+    import random
+
+    conn = get_db()
+    due = conn.execute("""
+        SELECT infinitive, pronoun FROM conjugate_srs
+        WHERE tense = ? AND lang = ? AND next_review <= date('now')
+        ORDER BY next_review ASC
+        LIMIT ?
+    """, (tense, lang, limit)).fetchall()
+    conn.close()
+
+    verbs = get_verbs(lang)
+    pronouns = list(PRONOUNS.keys())
+
+    result = []
+    seen = set()
+
+    for row in due:
+        key = (row["infinitive"], row["pronoun"])
+        if key not in seen:
+            verb = next((v for v in verbs if v["infinitive"] == row["infinitive"]), None)
+            if verb:
+                result.append({**verb, "pronoun": row["pronoun"]})
+                seen.add(key)
+
+    if len(result) < limit:
+        combos = [(v, p) for v in verbs for p in pronouns]
+        random.shuffle(combos)
+        for verb, pronoun in combos:
+            key = (verb["infinitive"], pronoun)
+            if key not in seen:
+                result.append({**verb, "pronoun": pronoun})
+                seen.add(key)
+                if len(result) >= limit:
+                    break
+
+    return result[:limit]
+
+
+# ── Public aliases for app.py ───────────────────────────────────────────
+
+update_vocab_srs = _upsert_vocab_srs
+update_conjugate_srs = _upsert_conjugate_srs

@@ -1,14 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Dutch Driller{% endblock %}
+{% block title %}{{ lang.name }} Driller{% endblock %}
 {% block content %}
 
-<h1>Drill Dutch. No bullshit.</h1>
+<h1>Drill {{ lang.name }}. No bullshit.</h1>
 <p class="subtitle">Pick a drill and start typing.</p>
 
+{% if available_languages|length > 1 %}
+<div class="controls" style="margin-bottom:1rem">
+    <div class="control-group">
+        <label>Language:</label>
+        {% for code, name in available_languages %}
+        <a href="/?lang={{ code }}" class="btn {% if lang_code == code %}active{% endif %}">{{ name }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <div class="card-grid">
-    <a href="/vocab" class="card">
+    <a href="/vocab?lang={{ lang_code }}" class="card">
         <h2>📝 Vocabulary</h2>
-        <p>Dutch ↔ English flashcards. 100+ words across 11 categories.</p>
+        <p>{{ lang.name }} ↔ English flashcards. 100+ words across 11 categories.</p>
         {% if vocab_total %}
         <div class="stat">{{ vocab_pct }}% correct ({{ vocab_total }} attempts)</div>
         {% else %}
@@ -16,13 +27,13 @@
         {% endif %}
     </a>
 
-    <a href="/phrases" class="card">
+    <a href="/phrases?lang={{ lang_code }}" class="card">
         <h2>💬 Phrases</h2>
         <p>50 survival phrases by scenario: restaurant, shopping, travel, small talk.</p>
         <div class="stat dim">New!</div>
     </a>
 
-    <a href="/conjugate" class="card">
+    <a href="/conjugate?lang={{ lang_code }}" class="card">
         <h2>🔤 Conjugation</h2>
         <p>24 verbs, 3 tenses. Present, past, perfect. Regular and irregular.</p>
         {% if conj_total %}
@@ -32,19 +43,17 @@
         {% endif %}
     </a>
 
-    <a href="/sentences" class="card">
+    <a href="/sentences?lang={{ lang_code }}" class="card">
         <h2>🧩 Sentence Builder</h2>
         <p>JLPT-style word ordering. A1 to B1. Tap words in correct sequence.</p>
         <div class="stat dim">New!</div>
     </a>
 </div>
 
-<!-- Dashboard -->
 {% if streak and streak.total_days > 0 %}
 <div class="dashboard">
     <h2>Your Progress</h2>
 
-    <!-- Streak -->
     <div class="streak-bar">
         <div class="streak-current">
             <span class="streak-number">{{ streak.current }}</span>
@@ -56,7 +65,6 @@
         </div>
     </div>
 
-    <!-- CEFR progress -->
     {% if cefr_levels %}
     <h3>CEFR Levels</h3>
     <div class="cefr-grid">
@@ -76,7 +84,6 @@
     </div>
     {% endif %}
 
-    <!-- Conjugation by tense -->
     {% if tense_stats %}
     <h3>Conjugation Accuracy</h3>
     <div class="tense-grid">

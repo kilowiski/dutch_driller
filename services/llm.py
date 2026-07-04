@@ -71,16 +71,16 @@ def generate(content_type, level, count, category, get_existing):
             f"Generate {count} new Dutch vocabulary words at CEFR level {level}."
             + (f" Category theme: {category}." if category else "")
             + f" Do NOT include any of these existing words: {', '.join(existing[:50])}."
-            + f" For each word provide: dutch (with article de/het), english, category (one word),"
+            + f" For each word provide: word (the Dutch word with article de/het), translation (English), category (one word),"
             + f" and example (a simple Dutch sentence using the word)."
             + f" Reply ONLY with a JSON array of objects like: "
-            + f'[{{"dutch":"de hond","english":"the dog","category":"animals","example":"De hond speelt in de tuin."}}]'
+            + f'[{{"word":"de hond","translation":"the dog","category":"animals","example":"De hond speelt in de tuin."}}]'
         )
     elif content_type == "verb":
         prompt = (
             f"Generate {count} new Dutch verbs at CEFR level {level}."
             + f" Do NOT include: {', '.join(existing)}."
-            + f" For each provide: infinitive, english, type (regular/irregular/modal), stem,"
+            + f" For each provide: infinitive, translation (English meaning), type (regular/irregular/modal), stem,"
             + f" example, and irregular forms (empty object for regular)."
             + f" Reply ONLY with a JSON array."
         )
@@ -88,7 +88,7 @@ def generate(content_type, level, count, category, get_existing):
         prompt = (
             f"Generate {count} new Dutch survival phrases at level {level}."
             + f" Do NOT include: {', '.join(existing)}."
-            + f" For each provide: dutch, english, scenario (restaurant/shopping/travel/smalltalk/emergency/daily)."
+            + f" For each provide: word (Dutch phrase), translation (English), scenario (restaurant/shopping/travel/smalltalk/emergency/daily)."
             + f" Reply ONLY with a JSON array."
         )
     else:  # sentence

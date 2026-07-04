@@ -3,18 +3,18 @@
 {% block content %}
 
 <h1>Sentence Builder</h1>
-<p class="subtitle">Tap words in correct order to build the Dutch sentence.</p>
+<p class="subtitle">Tap words in correct order to build the {{ lang.name }} sentence.</p>
 
 <div class="controls">
     <div class="control-group">
         <label>Level:</label>
-        <a href="/sentences" class="btn {% if not selected_level %}active{% endif %}">All</a>
+        <a href="/sentences?lang={{ lang_code }}" class="btn {% if not selected_level %}active{% endif %}">All</a>
         {% for l in cefr_levels %}
-        <a href="?level={{ l }}" class="btn {% if selected_level == l %}active{% endif %}">{{ l }}</a>
+        <a href="?lang={{ lang_code }}&level={{ l }}" class="btn {% if selected_level == l %}active{% endif %}">{{ l }}</a>
         {% endfor %}
     </div>
     <div class="control-group">
-        <a href="/sentences{% if selected_level %}?level={{ selected_level }}{% endif %}"
+        <a href="/sentences?lang={{ lang_code }}{% if selected_level %}&level={{ selected_level }}{% endif %}"
            class="btn refresh">🔄 New Drill</a>
     </div>
 </div>
@@ -43,7 +43,7 @@
 
 <div id="score-bar" class="hidden">
     <span id="score-text"></span>
-    <a href="/sentences{% if selected_level %}?level={{ selected_level }}{% endif %}" class="btn">🔄 Again</a>
+    <a href="/sentences?lang={{ lang_code }}{% if selected_level %}&level={{ selected_level }}{% endif %}" class="btn">🔄 Again</a>
     <div class="unlock-hint">Want more? <a href="/admin">Generate new content</a></div>
 </div>
 
@@ -53,7 +53,7 @@
         const btn = e.target.closest('.speak-btn');
         if (!btn) return;
         const u = new SpeechSynthesisUtterance(btn.dataset.word);
-        u.lang = 'nl-NL'; u.rate = 0.85;
+        u.lang = '{{ lang.tts_lang }}'; u.rate = 0.85;
         speechSynthesis.cancel(); speechSynthesis.speak(u);
     });
 

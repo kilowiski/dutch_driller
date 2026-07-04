@@ -1,6 +1,7 @@
 """
-Dutch Driller — a no-bullshit Dutch language training app.
+Dutch Driller — a no-bullshit language training app.
 Flask + SQLite. All reference data in SQL tables.
+Supports multiple languages via the LANGUAGES registry.
 """
 
 import os, random, json
@@ -16,13 +17,26 @@ from models import (
     get_sentences, get_sentence_levels,
     insert_vocab, insert_verb, insert_phrase, insert_sentence,
     get_table_counts,
+    get_due_vocab, get_due_phrases, get_due_conjugations,
+    update_vocab_srs, update_conjugate_srs,
 )
 
+from languages import get_lang, DEFAULT_LANG, available_languages
 from engines.dutch import DutchEngine
 from services.matching import matches
 from services.llm import explain, generate as llm_generate
 
-engine = DutchEngine()
+# ── Engine registry ─────────────────────────────────────────────────────
+# Maps lang code → engine instance.  Add new languages here.
+ENGINES = {
+    "nl": DutchEngine(),
+}
+
+
+def get_engine(lang):
+    """Return the conjugation engine for a language, falling back to Dutch."""
+    return ENGINES.get(lang, ENGINES[DEFAULT_LANG])
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dutch-driller-dev-key")
@@ -49,29 +63,53 @@ init_db()
 # One-time seed: populate from .py files if tables are empty
 def _seed_if_empty():
     try:
-        from models import get_db
         conn = get_db()
         if conn.execute("SELECT COUNT(*) FROM vocab_words").fetchone()[0] == 0:
             from data.vocabulary import VOCABULARY
-            conn.executemany("INSERT INTO vocab_words (dutch,english,category,cefr,example) VALUES (?,?,?,?,?)",
-                             [(e["dutch"],e["english"],e["category"],e.get("cefr",""),e.get("example","")) for e in VOCABULARY])
+            conn.executemany(
+                "INSERT INTO vocab_words (word, translation, category, lang, cefr, example) VALUES (?,?,?,?,?,?)",
+                [(e["word"], e["translation"], e["category"], e.get("lang", "nl"), e.get("cefr", ""), e.get("example", ""))
+                 for e in VOCABULARY],
+            )
         if conn.execute("SELECT COUNT(*) FROM phrases").fetchone()[0] == 0:
             from data.phrases import PHRASES
-            conn.executemany("INSERT INTO phrases (dutch,english,scenario,cefr) VALUES (?,?,?,?)",
-                             [(p["dutch"],p["english"],p["scenario"],p.get("cefr","")) for p in PHRASES])
+            conn.executemany(
+                "INSERT INTO phrases (word, translation, scenario, lang, cefr) VALUES (?,?,?,?,?)",
+                [(p["word"], p["translation"], p["scenario"], p.get("lang", "nl"), p.get("cefr", ""))
+                 for p in PHRASES],
+            )
         if conn.execute("SELECT COUNT(*) FROM sentences_ref").fetchone()[0] == 0:
-            from data.sentences import SENTENCES; import json
-            conn.executemany("INSERT INTO sentences_ref (correct_order,english,cefr) VALUES (?,?,?)",
-                             [(json.dumps(s["correct"]),s["english"],s.get("cefr","")) for s in SENTENCES])
+            from data.sentences import SENTENCES
+            conn.executemany(
+                "INSERT INTO sentences_ref (correct_order, english, lang, cefr) VALUES (?,?,?,?)",
+                [(json.dumps(s["correct"]), s["english"], s.get("lang", "nl"), s.get("cefr", ""))
+                 for s in SENTENCES],
+            )
         if conn.execute("SELECT COUNT(*) FROM verbs_ref").fetchone()[0] == 0:
-            from data.verbs import VERBS; import json
-            conn.executemany("INSERT INTO verbs_ref (infinitive,english,type,stem,cefr,example,irregular) VALUES (?,?,?,?,?,?,?)",
-                             [(v["infinitive"],v["english"],v["type"],v.get("stem",""),v.get("cefr",""),v.get("example",""),
-                               json.dumps(v.get("irregular",{}))) for v in VERBS])
+            from data.verbs import VERBS
+            conn.executemany(
+                "INSERT INTO verbs_ref (infinitive, translation, type, stem, lang, cefr, example, irregular) VALUES (?,?,?,?,?,?,?,?)",
+                [(v["infinitive"], v["translation"], v["type"], v.get("stem", ""), v.get("lang", "nl"),
+                  v.get("cefr", ""), v.get("example", ""), json.dumps(v.get("irregular", {})))
+                 for v in VERBS],
+            )
         conn.commit(); conn.close()
     except Exception:
-        pass  # .py seed files not available — DB may already have data
+        pass
 _seed_if_empty()
+
+
+# ── Context processor: inject lang config into all templates ───────────
+
+@app.context_processor
+def inject_lang():
+    lang = request.args.get("lang", DEFAULT_LANG)
+    return {
+        "lang": get_lang(lang),
+        "lang_code": lang,
+        "available_languages": available_languages(),
+    }
+
 
 # ── Home ───────────────────────────────────────────────────────────────
 
@@ -104,21 +142,21 @@ def index():
 
 @app.route("/vocab")
 def vocab_drill():
-    direction = request.args.get("direction", "nl_en")
+    lang = request.args.get("lang", DEFAULT_LANG)
+    direction = request.args.get("direction", "forward")
     category = request.args.get("category", "")
     count = int(request.args.get("count", 10))
 
-    pool = get_vocab_words(category) if category else get_vocab_words()
-    items = random.sample(pool, min(count, len(pool)))
+    items = get_due_vocab(direction, lang, category, count)
     random.shuffle(items)
 
     drill_items = []
     for entry in items:
-        dutch, english = entry["dutch"], entry["english"]
-        prompt, answer = (dutch, english) if direction == "nl_en" else (english, dutch)
+        word, translation = entry["word"], entry["translation"]
+        prompt, answer = (word, translation) if direction == "forward" else (translation, word)
         drill_items.append({
             "prompt": prompt, "answer": answer,
-            "dutch": dutch, "english": english,
+            "word": word, "translation": translation,
             "category": entry["category"],
             "cefr": entry.get("cefr", ""),
             "example": entry.get("example", ""),
@@ -126,7 +164,7 @@ def vocab_drill():
 
     return render_template(
         "vocab.html", items=drill_items, direction=direction,
-        categories=get_vocab_categories(), selected_category=category,
+        categories=get_vocab_categories(lang), selected_category=category,
     )
 
 
@@ -134,15 +172,17 @@ def vocab_drill():
 def vocab_check():
     data = request.get_json()
     user_answer = data.get("answer", "").strip()
-    dutch = data.get("dutch", "")
-    english = data.get("english", "")
+    word = data.get("word", "")
+    translation = data.get("translation", "")
     category = data.get("category", "")
     cefr = data.get("cefr", "")
-    direction = data.get("direction", "nl_en")
+    direction = data.get("direction", "forward")
+    lang = data.get("lang", DEFAULT_LANG)
 
-    expected = english if direction == "nl_en" else dutch
+    expected = translation if direction == "forward" else word
     correct = matches(user_answer, expected)
-    record_vocab(dutch, english, category, user_answer, correct, direction, cefr)
+    record_vocab(word, translation, category, user_answer, correct, direction, lang, cefr)
+    update_vocab_srs(word, direction, lang, correct)
 
     return jsonify({
         "correct": correct, "expected": expected,
@@ -154,7 +194,7 @@ def vocab_check():
 def vocab_explain():
     data = request.get_json()
     return jsonify(explain(
-        dutch=data.get("dutch", ""), english=data.get("english", ""),
+        dutch=data.get("word", ""), english=data.get("translation", ""),
         expected=data.get("expected", ""), user_answer=data.get("answer", ""),
     ))
 
@@ -163,27 +203,27 @@ def vocab_explain():
 
 @app.route("/phrases")
 def phrases_drill():
+    lang = request.args.get("lang", DEFAULT_LANG)
     scenario = request.args.get("scenario", "")
-    direction = request.args.get("direction", "nl_en")
+    direction = request.args.get("direction", "forward")
     count = int(request.args.get("count", 10))
 
-    pool = get_phrases(scenario) if scenario else get_phrases()
-    items = random.sample(pool, min(count, len(pool)))
+    items = get_due_phrases(direction, lang, scenario, count)
     random.shuffle(items)
 
     drill_items = []
     for entry in items:
-        dutch, english = entry["dutch"], entry["english"]
-        prompt, answer = (dutch, english) if direction == "nl_en" else (english, dutch)
+        word, translation = entry["word"], entry["translation"]
+        prompt, answer = (word, translation) if direction == "forward" else (translation, word)
         drill_items.append({
             "prompt": prompt, "answer": answer,
-            "dutch": dutch, "english": english,
+            "word": word, "translation": translation,
             "scenario": entry["scenario"], "cefr": entry.get("cefr", ""),
         })
 
     return render_template(
         "phrases.html", items=drill_items, direction=direction,
-        scenarios=get_phrase_scenarios(), selected_scenario=scenario,
+        scenarios=get_phrase_scenarios(lang), selected_scenario=scenario,
     )
 
 
@@ -191,12 +231,14 @@ def phrases_drill():
 def phrases_check():
     data = request.get_json()
     user_answer = data.get("answer", "").strip()
-    dutch = data.get("dutch", "")
-    english = data.get("english", "")
-    expected = english if data.get("direction") == "nl_en" else dutch
+    word = data.get("word", "")
+    translation = data.get("translation", "")
+    direction = data.get("direction", "forward")
+    lang = data.get("lang", DEFAULT_LANG)
+    expected = translation if direction == "forward" else word
     correct = matches(user_answer, expected)
-    record_vocab(dutch, english, "phrases", user_answer, correct,
-                 data.get("direction", "nl_en"), data.get("cefr", ""))
+    record_vocab(word, translation, "phrases", user_answer, correct, direction, lang, data.get("cefr", ""))
+    update_vocab_srs(word, direction, lang, correct)
     return jsonify({"correct": correct, "expected": expected,
                     "llm_available": not correct})
 
@@ -205,7 +247,7 @@ def phrases_check():
 def phrases_explain():
     data = request.get_json()
     return jsonify(explain(
-        dutch=data.get("dutch", ""), english=data.get("english", ""),
+        dutch=data.get("word", ""), english=data.get("translation", ""),
         expected=data.get("expected", ""), user_answer=data.get("answer", ""),
     ))
 
@@ -214,17 +256,18 @@ def phrases_explain():
 
 @app.route("/sentences")
 def sentence_drill():
+    lang = request.args.get("lang", DEFAULT_LANG)
     level = request.args.get("level", "")
     count = int(request.args.get("count", 5))
 
-    rows = get_sentences(level) if level else get_sentences()
+    rows = get_sentences(level, lang) if level else get_sentences(lang=lang)
     items = random.sample(rows, min(count, len(rows)))
     random.shuffle(items)
     for item in items:
         item["correct"] = item.pop("correct_order")
 
     return render_template("sentences.html", items=items,
-                           cefr_levels=get_sentence_levels(), selected_level=level)
+                           cefr_levels=get_sentence_levels(lang), selected_level=level)
 
 
 @app.route("/sentences/check", methods=["POST"])
@@ -240,26 +283,25 @@ def sentences_check():
 
 @app.route("/conjugate")
 def conjugate_drill():
+    lang = request.args.get("lang", DEFAULT_LANG)
     tense = request.args.get("tense", "present")
     count = int(request.args.get("count", 10))
 
-    pronouns = list(engine.pronouns.keys())
-    pool = engine.get_verbs()
-    random.shuffle(pool)
+    engine = get_engine(lang)
+    items = get_due_conjugations(tense, lang, count)
 
     drill_items = []
-    for verb in pool[:count]:
-        pronoun = random.choice(pronouns)
-        correct_form = engine.conjugate(verb, tense, pronoun)
+    for item in items:
+        correct_form = engine.conjugate(item, tense, item["pronoun"])
         drill_items.append({
-            "infinitive": verb["infinitive"],
-            "english": verb["english"],
+            "infinitive": item["infinitive"],
+            "translation": item["translation"],
             "tense": tense,
-            "pronoun": pronoun,
-            "pronoun_label": engine.pronouns[pronoun],
+            "pronoun": item["pronoun"],
+            "pronoun_label": engine.pronouns[item["pronoun"]],
             "correct_form": correct_form,
-            "cefr": verb.get("cefr", ""),
-            "example": verb.get("example", ""),
+            "cefr": item.get("cefr", ""),
+            "example": item.get("example", ""),
         })
 
     return render_template("conjugate.html", items=drill_items, tense=tense,
@@ -274,14 +316,17 @@ def conjugate_check():
     infinitive = data.get("infinitive", "")
     tense = data.get("tense", "present")
     pronoun = data.get("pronoun", "")
+    lang = data.get("lang", DEFAULT_LANG)
 
-    verbs = engine.get_verbs()
+    engine = get_engine(lang)
+    verbs = engine.get_verbs(lang)
     verb_entry = next((v for v in verbs if v["infinitive"] == infinitive), None)
     if not verb_entry:
         return jsonify({"correct": False, "expected": "?"})
 
     is_correct, correct_form = engine.check_answer(verb_entry, tense, pronoun, user_answer)
-    record_conjugate(infinitive, tense, pronoun, user_answer, is_correct)
+    record_conjugate(infinitive, tense, pronoun, user_answer, is_correct, lang)
+    update_conjugate_srs(infinitive, tense, pronoun, lang, is_correct)
     return jsonify({"correct": is_correct, "expected": correct_form})
 
 
@@ -311,16 +356,16 @@ def generate_content():
     level = data.get("level", "A1")
     count = min(int(data.get("count", 5)), 10)
     category = data.get("category", "")
+    lang = data.get("lang", DEFAULT_LANG)
 
-    # Get existing items to avoid duplicates
     if content_type == "vocab":
-        get_existing = lambda: [w["dutch"] for w in get_vocab_words()]
+        get_existing = lambda: [w["word"] for w in get_vocab_words(lang=lang)]
     elif content_type == "verb":
-        get_existing = lambda: [v["infinitive"] for v in engine.get_verbs()]
+        get_existing = lambda: [v["infinitive"] for v in get_engine(lang).get_verbs(lang)]
     elif content_type == "phrase":
-        get_existing = lambda: [p["dutch"] for p in get_phrases()]
+        get_existing = lambda: [p["word"] for p in get_phrases(lang=lang)]
     else:
-        get_existing = lambda: [s["english"] for s in get_sentences()]
+        get_existing = lambda: [s["english"] for s in get_sentences(lang=lang)]
 
     items, error = llm_generate(content_type, level, count, category, get_existing)
     if error:
@@ -330,14 +375,14 @@ def generate_content():
     for item in items:
         try:
             if content_type == "vocab":
-                insert_vocab(item["dutch"], item["english"], item.get("category", "general"), level, item.get("example", ""))
+                insert_vocab(item["word"], item["translation"], item.get("category", "general"), level, item.get("example", ""), lang)
             elif content_type == "verb":
-                insert_verb(item["infinitive"], item["english"], item.get("type", "regular"),
-                            item.get("stem", item["infinitive"][:-2]), level, item.get("example", ""), item.get("irregular", {}))
+                insert_verb(item["infinitive"], item["translation"], item.get("type", "regular"),
+                            item.get("stem", item["infinitive"][:-2]), level, item.get("example", ""), item.get("irregular", {}), lang)
             elif content_type == "phrase":
-                insert_phrase(item["dutch"], item["english"], item.get("scenario", "daily"), level)
+                insert_phrase(item["word"], item["translation"], item.get("scenario", "daily"), level, lang)
             else:
-                insert_sentence(item["correct"], item["english"], level)
+                insert_sentence(item["correct"], item["english"], level, lang)
             inserted += 1
         except Exception:
             pass

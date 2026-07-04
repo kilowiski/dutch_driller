@@ -12,7 +12,7 @@ class ConjugationEngine:
     tenses: list = []         # ["present", "past", ...]
     tense_labels: dict = {}   # {"present": "present tense (description)", ...}
 
-    def get_verbs(self) -> list:
+    def get_verbs(self, lang: str = "nl") -> list:
         """Return all verb entries for this language."""
         raise NotImplementedError
 

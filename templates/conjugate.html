@@ -8,12 +8,12 @@
     <div class="control-group">
         <label>Tense:</label>
         {% for t in tenses %}
-        <a href="?tense={{ t }}" class="btn {% if tense == t %}active{% endif %}">{{ t }}</a>
+        <a href="?lang={{ lang_code }}&tense={{ t }}" class="btn {% if tense == t %}active{% endif %}">{{ t }}</a>
         {% endfor %}
     </div>
 
     <div class="control-group">
-        <a href="?tense={{ tense }}" class="btn refresh">🔄 New Drill</a>
+        <a href="?lang={{ lang_code }}&tense={{ tense }}" class="btn refresh">🔄 New Drill</a>
     </div>
 </div>
 
@@ -22,18 +22,17 @@
 <div id="drill-container">
     {% for item in items %}
     <div class="drill-card" data-infinitive="{{ item.infinitive }}"
-         data-tense="{{ item.tense }}" data-pronoun="{{ item.pronoun }}">
+         data-tense="{{ item.tense }}" data-pronoun="{{ item.pronoun }}"
+         data-lang="{{ lang_code }}">
         <div class="prompt-label">Conjugate:</div>
         <div class="prompt-word">
             {{ item.infinitive }}
+            <button class="speak-btn" data-word="{{ item.infinitive }}" title="Listen">🔊</button>
         </div>
         <div class="card-meta">
-            <span class="verb-hint">{{ item.english }}</span>
+            <span class="verb-hint">{{ item.translation }}</span>
             {% if item.cefr %}
             <span class="cefr-badge cefr-{{ item.cefr|lower }}">{{ item.cefr }}</span>
-            {% endif %}
-            {% if item.emoji %}
-            <span class="emoji-hint" title="Hint">{{ item.emoji }}</span>
             {% endif %}
         </div>
         <div class="conjugation-prompt">
@@ -50,19 +49,18 @@
 
 <div id="score-bar" class="hidden">
     <span id="score-text"></span>
-    <a href="/conjugate?tense={{ tense }}" class="btn">🔄 Again</a>
+    <a href="/conjugate?lang={{ lang_code }}&tense={{ tense }}" class="btn">🔄 Again</a>
     <div class="unlock-hint">Want more? <a href="/admin">Generate new content</a></div>
 </div>
 
 <script>
 (function() {
-    // Voice: speak Dutch word on click
     document.addEventListener('click', function(e) {
         const btn = e.target.closest('.speak-btn');
         if (!btn) return;
         const word = btn.dataset.word;
         const utterance = new SpeechSynthesisUtterance(word);
-        utterance.lang = 'nl-NL';
+        utterance.lang = '{{ lang.tts_lang }}';
         utterance.rate = 0.85;
         speechSynthesis.cancel();
         speechSynthesis.speak(utterance);
@@ -89,6 +87,7 @@
                         infinitive: card.dataset.infinitive,
                         tense: card.dataset.tense,
                         pronoun: card.dataset.pronoun,
+                        lang: card.dataset.lang,
                     })
                 })
                 .then(r => r.json())
