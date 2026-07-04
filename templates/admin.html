@@ -105,9 +105,13 @@ function generate(type) {
             resultEl.textContent = 'Error: ' + data.error;
             resultEl.className = 'feedback feedback-bad';
         } else {
-            let msg = 'Generated ' + data.generated + ', inserted ' + data.inserted + ' new.';
+            let msg = '';
+            if (data.added && data.added.length > 0) {
+                msg = 'Added ' + data.added.length + ': ' + data.added.join(', ') + '. ';
+            }
+            msg += 'Generated ' + data.generated + ', inserted ' + data.inserted + ' new.';
             if (data.skipped && data.skipped.length > 0) {
-                msg += ' Skipped ' + data.skipped.length + ' duplicate(s): ' + data.skipped.join(', ') + '. Reload to see updated counts.';
+                msg += ' Skipped ' + data.skipped.length + ' duplicate(s): ' + data.skipped.join(', ') + '.';
                 resultEl.className = 'feedback feedback-bad';
             } else {
                 resultEl.className = 'feedback feedback-ok';
